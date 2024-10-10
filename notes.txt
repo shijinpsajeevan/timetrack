@@ -1,1 +1,22 @@
-test
+Client Packages
+
+npm install @ant-design/icons --save
+npm install antd --save
+
+//
+
+User Creation - UserLogin table
+
+CREATE TABLE UserLogin (
+    UserID INT IDENTITY(1,1) PRIMARY KEY,  -- UserID as primary key with auto-increment
+    FirstName NVARCHAR(50) NOT NULL,       -- User's first name
+    LastName NVARCHAR(50) NOT NULL,        -- User's last name
+    Company NVARCHAR(100),                 -- Company name
+    UserType NVARCHAR(50),                 -- Type of user (e.g., admin, standard user, etc.)
+    IsAdmin BIT DEFAULT 0,                 -- Boolean value to check if the user is an admin (0 = false, 1 = true)
+    UserName NVARCHAR(50) NOT NULL UNIQUE, -- Unique username
+    UserMail NVARCHAR(100) NOT NULL UNIQUE,-- Unique email address
+    UserPassword NVARCHAR(255) NOT NULL,   -- User password (store as a hashed value)
+    ApprovedUser BIT DEFAULT 0,            -- Boolean value to check if the user is approved (0 = false, 1 = true)
+    Active BIT DEFAULT 1                   -- Boolean value to check if the user is active (0 = inactive, 1 = active)
+);
