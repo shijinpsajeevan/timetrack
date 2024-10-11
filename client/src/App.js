@@ -1,17 +1,21 @@
 import logo from './logo.svg';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { UserProvider } from './Components/Dashboard/UserProvider';
 import './App.css';
-import Login from './Components/Login/Login'
+import Login from './Components/Login/Login';
+import Users from './Components/Users/Users';
 import Dashboard from './Components/Dashboard/Dashboard';
 
 function App() {
   return (
+    <UserProvider>
     <Router>
     <div className="App">
       <Routes>
         {/* Route for login */}
         <Route path="/login" element={<Login />} />
-        
+        <Route path="/users" element={<Users/>}/>
+        <Route path="/" element={<Navigate to="/dashboard" />} /> {/* Redirect to dashboard by default */}
         {/* Route for dashboard */}
         <Route path="/dashboard" element={<Dashboard />} />
         
@@ -20,6 +24,7 @@ function App() {
       </Routes>
     </div>
   </Router>
+  </UserProvider>
   );
 }
 

@@ -3,6 +3,7 @@ import { Layout, Form, Input, Button, Typography, Row, Col, Space, Divider, mess
 import { UserOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom'; // Use react-router for navigation
 import axios from 'axios'; // Import axios for API requests
+import { useUser } from '../Dashboard/UserProvider'
 
 const { Header, Footer, Content } = Layout;
 const { Title, Text } = Typography;
@@ -34,6 +35,7 @@ const layoutStyle = {
 
 const LoginForm = () => {
   const navigate = useNavigate(); // Hook for navigation
+  const { setUserRole, setUser } = useUser();  // Destructure setUserRole and setUser from context
 
    // Check for token in localStorage and redirect if logged in
    useEffect(() => {
@@ -52,8 +54,13 @@ const LoginForm = () => {
         password: values.password
       });
 
+      console.log(response.data,"data from login");
+
       // Store the JWT token in localStorage or cookies
       localStorage.setItem('token', response.data.token);
+      localStorage.setItem('userType', response.data.userType);
+      localStorage.setItem('userName',response.data.firstName);
+      setUserRole(response.data.userType);
 
       // Show success message
       message.success('Login successful!');

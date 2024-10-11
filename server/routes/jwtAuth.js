@@ -15,9 +15,11 @@ router.post("/login", validinfo, async (req, res) => {
     const pool = await poolPromise; // Using the correct pool promise to handle connection
     const userResult = await pool.request()
       .input('userMail', sql.VarChar, email) // Assuming you want to query by email
-      .query('SELECT UserId, UserPassword, IsAdmin FROM userLogin WHERE userMail = @userMail');
+      .query('SELECT * FROM userLogin WHERE userMail = @userMail and ApprovedUser=1');
 
     const user = userResult.recordset[0]; // Get the first record from the result
+
+    console.log(userResult,"result");
 
     if (!user) {
       return res.status(401).json("Email/Password is incorrect");
@@ -31,9 +33,9 @@ router.post("/login", validinfo, async (req, res) => {
     }
 
     // 4. Generate JWT token
-    const token = jwtGenerator(user.UserId, user.IsAdmin); // Ensure the jwtGenerator function handles this correctly
+    const token = jwtGenerator(user.UserId, user.UserMail); // Ensure the jwtGenerator function handles this correctly
 
-    res.json({ token });
+    res.json({ token, isAdmin: user.IsAdmin , isSuperAdmin: user.IsSuperAdmin, userType: user.UserType, firstName: user.FirstName, userID:user.UserId});
 
   } catch (error) {
     console.error(error);
