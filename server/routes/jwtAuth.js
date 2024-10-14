@@ -32,8 +32,9 @@ router.post("/login", validinfo, async (req, res) => {
       return res.status(401).json("Password or Email is incorrect");
     }
 
+    console.log("Gnerating id using",user.UserID,user.UserMail);
     // 4. Generate JWT token
-    const token = jwtGenerator(user.UserId, user.UserMail); // Ensure the jwtGenerator function handles this correctly
+    const token = jwtGenerator(user.UserID, user.UserMail); // Ensure the jwtGenerator function handles this correctly
 
     res.json({ token, isAdmin: user.IsAdmin , isSuperAdmin: user.IsSuperAdmin, userType: user.UserType, firstName: user.FirstName, userID:user.UserId});
 
@@ -44,6 +45,8 @@ router.post("/login", validinfo, async (req, res) => {
 });
 
 router.get("/is-verify", authorization, async (req, res) => {
+    console.log(req,"is verify");
+    
   try {
     res.json(true); // If authorized, return true
   } catch (error) {

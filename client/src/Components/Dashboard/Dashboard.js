@@ -1,10 +1,12 @@
-import React, {useState} from 'react';
-import { Layout, Menu, Breadcrumb, Table, Statistic, Card, Row, Col, Button, theme, Space } from 'antd';
-import { UserOutlined, PieChartOutlined, LogoutOutlined } from '@ant-design/icons';
+import React, {useState, useEffect} from 'react';
+import { Button, Layout, Menu, Breadcrumb, Table, Statistic, Card, Row, Col, theme, Space, Tooltip  } from 'antd';
+import { UserOutlined, PieChartOutlined, LogoutOutlined, MenuUnfoldOutlined, MenuFoldOutlined } from '@ant-design/icons';
 import { useNavigate , Link, Outlet} from 'react-router-dom';
 import logo from '../../Images/azzurro.jpg'; // Add your logo image path here
 import { useUser } from './UserProvider';
+import AttSummary from './AttSummary/AttSummary';
 import Users from '../Users/Users';
+import axios from 'axios';
 
 
 const { Header, Content, Sider, Footer } = Layout;
@@ -45,11 +47,53 @@ const data = [
 const Dashboard = () => {
 
   const navigate = useNavigate();
+  const [isVerified,setIsVerified]= useState(false);
+  const [collapsed,setCollapsed] = useState(false);
+
+  const toggleCollapsed = () => {
+    setCollapsed(!collapsed);
+  };
+
+  useEffect(() => {
+    
+    const verifyToken = async () =>{
+        try {
+            const token = localStorage.getItem('token');
+            if(!token)
+            {
+                navigate('/login');
+            }
+
+            const response = await axios.get('http://localhost:3003/api/auth/is-verify', {
+                headers: { token: token } 
+              });
+
+              if (response.data === true) {
+                setIsVerified(true);
+              } else {
+                localStorage.removeItem("token");
+                navigate('/login');
+              }
+
+        } catch (error) {
+            console.error("Verification failed:", error);
+            localStorage.removeItem('token');
+            window.location.reload();
+        // localStorage.removeItem("token");
+        // navigate('/login'); // Token is invalid, redirect to login
+        }
+    }
+
+    verifyToken();
+  },[navigate])
+  
+
+
   const { menus } = useUser(); // Access menus from context
   const userName = localStorage.getItem('userName');
 
   //Default component for loading
-  const [currentComponent, setCurrentComponent] = useState(<Users />);
+  const [currentComponent, setCurrentComponent] = useState(<AttSummary />);
 
   const menuNavigate=(e)=>{
     
@@ -60,7 +104,7 @@ const Dashboard = () => {
           setCurrentComponent(<Users />);
           break;
         case 'dashboard': // Change 'another' to the key of another component
-          setCurrentComponent(<Dashboard />);
+          setCurrentComponent(<AttSummary />);
           break;
         default:
           setCurrentComponent(<Users />); // Default to Users component
@@ -78,12 +122,25 @@ const Dashboard = () => {
 
   return (
     <Layout style={{ minHeight: '100vh' }}>
-      <Sider>
+      <Sider collapsible collapsed={collapsed} onCollapse={setCollapsed}>
         <div style={{ padding: '16px', textAlign: 'center' }}>
-          <img src={logo} alt="Logo" style={{ width: '120px', marginBottom: '16px' }} />
+        <img
+      src={logo}
+      alt="Logo"
+      style={{
+        width: collapsed ? '40px' : '120px', // Adjust the width based on the collapsed state
+        transition: 'width 0.2s', // Smooth transition for width change
+        marginBottom: '16px'
+      }}
+    />
         </div>
+        <Tooltip placement='right' title={collapsed?'Maximize Side Menu':'Minimize Side Menu'}>
+        <Button  onClick={toggleCollapsed} style={{ marginBottom: 16 }}>
+        {collapsed ? <MenuUnfoldOutlined /> :  <MenuFoldOutlined />}
+      </Button>
+        </Tooltip>
         
-        <Menu theme="light" mode="inline" items={menus} onClick={menuNavigate}>
+        <Menu theme="light" mode="inline" items={menus} onClick={menuNavigate} inlineCollapsed={collapsed}>
                 {/* {menus.map((item) => {
                     // Check if item has children
                     if (item.children) {
@@ -112,31 +169,14 @@ const Dashboard = () => {
           <Space direction='horizontal' ><UserOutlined/> {userName}</Space>
           </Breadcrumb>
           {/* Logout Button */}
-          <Button icon={<LogoutOutlined />} onClick={handleLogout} type="primary">
+          <Button icon={<LogoutOutlined />} onClick={handleLogout} type="text">
             Logout
           </Button>
         </Header>
 
         <Content style={{ margin: '16px' }}>
             
-          {/* <Row gutter={[16, 16]}>
-            <Col span={8}>
-              <Card>
-                <Statistic title="Total Employees" value={50} />
-              </Card>
-            </Col>
-            <Col span={8}>
-              <Card>
-                <Statistic title="Present Today" value={45} />
-              </Card>
-            </Col>
-            <Col span={8}>
-              <Card>
-                <Statistic title="Absent Today" value={5} />
-              </Card>
-            </Col>
-          </Row> */}
-          {/* <Table columns={columns} dataSource={data} style={{ marginTop: '16px' }} /> */}
+          
 
             {currentComponent} 
           
@@ -144,7 +184,7 @@ const Dashboard = () => {
         </Content>
         
 
-        <Footer style={{ textAlign: 'center' }}>Attendance Dashboard ©2024</Footer>
+        <Footer style={{ textAlign: 'center' }}>RIS DMCC, Attendance Dashboard &copy; {new Date().getFullYear()}</Footer>
       </Layout>
     </Layout>
   );
