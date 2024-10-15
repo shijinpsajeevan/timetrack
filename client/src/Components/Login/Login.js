@@ -1,75 +1,64 @@
-import React, {useEffect} from 'react';
+import React, { useEffect } from 'react';
 import { Layout, Form, Input, Button, Typography, Row, Col, Space, Divider, message } from 'antd';
 import { UserOutlined } from '@ant-design/icons';
-import { useNavigate } from 'react-router-dom'; // Use react-router for navigation
-import axios from 'axios'; // Import axios for API requests
-import { useUser } from '../Dashboard/UserProvider'
+import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
+import { useUser } from '../Dashboard/UserProvider';
 
 const { Header, Footer, Content } = Layout;
 const { Title, Text } = Typography;
 
 const headerStyle = {
   textAlign: 'center',
-  fontSize: '1.1rem',
-  color: '#08979c',
-  height: 64,
+  fontSize: '16px',
   lineHeight: '64px',
-  background:'rgb(199, 209, 220)'
+  background: 'none',
+  color: '#5f9bf1'
 };
 
 const footerStyle = {
   textAlign: 'center',
-  color: '#fff',
-  background: 'rgb(199, 209, 220)'
+  background: 'none'
 };
 
 const layoutStyle = {
   borderRadius: '16px',
   overflow: 'hidden',
-  width: '400px',
-  margin: '100px auto',
-  padding: '40px',
-  background: '#fff',
+  width: '90%', // Set width to a percentage to make it responsive
+  maxWidth: '400px', // Set a max width to keep the form compact
+  margin: '20px auto', // Reduced margin for smaller screens
+  padding: '20px',
+  backgroundColor: '#fdfdfd',
+  backgroundImage: 'linear-gradient(to top, rgba(253, 253, 253, 0.3) 0%, rgba(193, 218, 255, 0.3) 100%)',
   boxShadow: '0 4px 8px rgba(0, 0, 0, 0.1)'
 };
 
 const LoginForm = () => {
-  const navigate = useNavigate(); // Hook for navigation
-  const { setUserRole, setUser } = useUser();  // Destructure setUserRole and setUser from context
+  const navigate = useNavigate();
+  const { setUserRole, setUser } = useUser();
 
-   // Check for token in localStorage and redirect if logged in
-   useEffect(() => {
+  useEffect(() => {
     const token = localStorage.getItem('token');
     if (token) {
-      // Redirect to dashboard or main page
-      navigate('/dashboard'); // Replace with your protected route
+      navigate('/dashboard');
     }
   }, [navigate]);
 
   const onFinish = async (values) => {
     try {
-      // Call the login API
       const response = await axios.post('http://localhost:3003/api/auth/login', {
-        email: values.userEmail, // Assuming "userEmail" is an email
+        email: values.userEmail,
         password: values.password
       });
 
-      console.log(response.data,"data from login");
-
-      // Store the JWT token in localStorage or cookies
       localStorage.setItem('token', response.data.token);
       localStorage.setItem('userType', response.data.userType);
-      localStorage.setItem('userName',response.data.firstName);
+      localStorage.setItem('userName', response.data.firstName);
       setUserRole(response.data.userType);
 
-      // Show success message
       message.success('Login successful!');
-      
-        // Redirect to dashboard or main page
-        navigate('/dashboard'); // Replace with your route
-
+      navigate('/dashboard');
     } catch (error) {
-      // Handle error (e.g., incorrect login credentials)
       message.error(error.response?.data || 'Login failed. Please try again.');
     }
   };
@@ -79,14 +68,19 @@ const LoginForm = () => {
   };
 
   return (
-    <Layout style={{ minHeight: '100vh', background: 'rgb(199, 209, 220)' }}>
+    <Layout style={{
+      backgroundColor: '#fdfdfd',
+      backgroundImage: 'linear-gradient(to top, rgba(253, 253, 253, 0.3) 0%, rgba(193, 218, 255, 0.3) 100%)',
+      minHeight: '100vh', // Ensure full height coverage
+      overflow: 'hidden' // Prevent scrolling
+    }}>
       <Header style={headerStyle}>
-        <Title level={3}>RIS Attendance PRO v3.0</Title>
+        <Title level={4} style={{ color: '#5f9bf1' }}>RIS Attendance PRO v3.0</Title>
       </Header>
       <Content>
         <div style={layoutStyle}>
           <Divider>
-            <Title level={3} style={{ textAlign: 'center', marginBottom: '24px' }}>
+            <Title level={3} style={{ textAlign: 'center', marginBottom: '8px' }}>
               Login
             </Title>
           </Divider>

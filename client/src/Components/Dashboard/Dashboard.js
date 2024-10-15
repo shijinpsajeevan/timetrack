@@ -135,9 +135,9 @@ const Dashboard = () => {
     />
         </div>
         <Tooltip placement='right' title={collapsed?'Maximize Side Menu':'Minimize Side Menu'}>
-        <Button  onClick={toggleCollapsed} style={{ marginBottom: 16 }}>
+        {/* <Button  onClick={toggleCollapsed} style={{ marginBottom: 16 }}>
         {collapsed ? <MenuUnfoldOutlined /> :  <MenuFoldOutlined />}
-      </Button>
+      </Button> */}
         </Tooltip>
         
         <Menu theme="light" mode="inline" items={menus} onClick={menuNavigate} inlineCollapsed={collapsed}>
@@ -164,8 +164,8 @@ const Dashboard = () => {
 
       </Sider>
       <Layout>
-        <Header style={{ background: '#fff', padding: '0 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Breadcrumb style={{ margin: '16px 0' }}>
+        <Header style={{ background: '#fff', padding: '0 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' , height:'32px'}}>
+          <Breadcrumb style={{ margin: '8px 0' }}>
           <Space direction='horizontal' ><UserOutlined/> {userName}</Space>
           </Breadcrumb>
           {/* Logout Button */}
