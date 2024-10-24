@@ -14,6 +14,8 @@ app.use(express.json());
 //Router
 app.use("/api/auth",require('./routes/jwtAuth'))
 
+app.use("/api/common",require('./routes/common'))
+
 const port = process.env.PORT;
 
 app.listen(port, () => {

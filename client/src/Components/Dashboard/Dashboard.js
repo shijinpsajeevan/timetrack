@@ -1,6 +1,6 @@
 import React, {useState, useEffect} from 'react';
 import { Button, Layout, Menu, Breadcrumb, Table, Statistic, Card, Row, Col, theme, Space, Tooltip  } from 'antd';
-import { UserOutlined, PieChartOutlined, LogoutOutlined, MenuUnfoldOutlined, MenuFoldOutlined } from '@ant-design/icons';
+import { UserOutlined, LayoutFilled, LogoutOutlined, MenuUnfoldOutlined, MenuFoldOutlined } from '@ant-design/icons';
 import { useNavigate , Link, Outlet} from 'react-router-dom';
 import logo from '../../Images/azzurro.jpg'; // Add your logo image path here
 import { useUser } from './UserProvider';
@@ -50,6 +50,7 @@ const Dashboard = () => {
   const [isVerified,setIsVerified]= useState(false);
   const [collapsed,setCollapsed] = useState(false);
 
+
   const toggleCollapsed = () => {
     setCollapsed(!collapsed);
   };
@@ -86,6 +87,8 @@ const Dashboard = () => {
 
     verifyToken();
   },[navigate])
+
+
   
 
 
@@ -111,7 +114,6 @@ const Dashboard = () => {
       }
   }
 
-  console.log('Menus:', menus);
 
   // Logout function
   const handleLogout = () => {
@@ -174,7 +176,7 @@ const Dashboard = () => {
           </Button>
         </Header>
 
-        <Content style={{ margin: '16px' }}>
+        <Content style={{ margin: '16px'}}>
             
           
 
@@ -184,7 +186,7 @@ const Dashboard = () => {
         </Content>
         
 
-        <Footer style={{ textAlign: 'center' }}>RIS DMCC, Attendance Dashboard &copy; {new Date().getFullYear()}</Footer>
+        <Footer style={{ textAlign: 'center' , height:"2vh"}}>RIS DMCC, Attendance Dashboard &copy; {new Date().getFullYear()}</Footer>
       </Layout>
     </Layout>
   );

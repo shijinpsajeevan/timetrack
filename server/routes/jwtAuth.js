@@ -19,7 +19,7 @@ router.post("/login", validinfo, async (req, res) => {
 
     const user = userResult.recordset[0]; // Get the first record from the result
 
-    console.log(userResult,"result");
+    
 
     if (!user) {
       return res.status(401).json("Email/Password is incorrect");
@@ -32,7 +32,6 @@ router.post("/login", validinfo, async (req, res) => {
       return res.status(401).json("Password or Email is incorrect");
     }
 
-    console.log("Gnerating id using",user.UserID,user.UserMail);
     // 4. Generate JWT token
     const token = jwtGenerator(user.UserID, user.UserMail); // Ensure the jwtGenerator function handles this correctly
 
@@ -45,7 +44,7 @@ router.post("/login", validinfo, async (req, res) => {
 });
 
 router.get("/is-verify", authorization, async (req, res) => {
-    console.log(req,"is verify");
+    
     
   try {
     res.json(true); // If authorized, return true
