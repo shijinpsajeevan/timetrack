@@ -28,6 +28,62 @@ router.post("/getDeviceList",authorization,async (req, res) => {
     }
   });
 
+  //For getting Location name - Type1 - Device location, Type2- Location Based, Type3- Device groupBased
+
+  router.get("/getLocation", authorization, async(req, res) => {
+    try {
+        console.log("Getting request for location");
+        const { locationId, locationType } = req.query;
+
+        const pool = await poolPromise;
+        
+        if (!locationId || !locationType) {
+            return res.status(400).json({
+                success: false,
+                message: "Location ID and location type are required"
+            });
+        }
+
+        // Query to get location name based on location type
+        let query;
+        if (locationType === '1') {
+            query = `select dev.DeviceFName AS LocationName from Devices dev JOIN Locations loc ON loc.LocationId = dev.DeviceLocation where DeviceId = @locationId`;
+        } else {
+            // Add queries for other location types if needed
+            return res.status(400).json({
+                success: false,
+                message: "Invalid location type"
+            });
+        }
+
+        const results = await pool.request()
+        .input('locationId', sql.Int, locationId)  // Securely pass locationId to prevent SQL injection
+        .query(query);
+
+        if (!results || results.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: "Location not found"
+            });
+        }
+
+        console.log("Location result , results",results)
+
+        res.status(200).json({
+            success: true,
+            locationName: results.recordset[0].LocationName
+        });
+
+    } catch (error) {
+        console.error("Error fetching location:", error);
+        res.status(500).json({
+            success: false,
+            message: "Failed to fetch location",
+            error: error.message
+        });
+    }
+});
+
 
   //For taking the logs based on month - TYPE3
   router.post("/getDeviceLogs", authorization, async (req, res) => {
