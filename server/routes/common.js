@@ -66,6 +66,7 @@ router.post("/getDeviceList",authorization,async (req, res) => {
     loc.LocationName AS DeviceLocation,
     dev.DeviceFName AS DeviceName,
     dev.SerialNumber AS DeviceSerialNumber,
+    logs.AttenndanceMarkingType AS AttendanceMarkingType,
     logs.LogDate AS LogDate
 FROM 
     ${tableName} logs
