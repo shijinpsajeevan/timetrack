@@ -5,7 +5,10 @@ import axios from 'axios';
 import ExcelJS from 'exceljs';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
-
+import logo1 from '../../../../Images/azzurro.jpg'
+import logo2 from '../../../../Images/ESELogo.png'
+import {logo1str} from '../../../../Images/azzurro64'
+import {logo2str} from '../../../../Images/ESELogo64'
 const { Title, Text } = Typography;
 const { Option } = Select;
 
@@ -1237,6 +1240,22 @@ export default function AttMonthly({ locationid, duration }) {
                 top: 25,
                 bottom: 15
             };
+
+            // Logo dimensions and positions
+        const logoWidth = 15; // Width in mm
+        const logoHeight = 10; // Height in mm
+        
+        // Left logo position
+        const leftLogoX = margins.left;
+        const leftLogoY = 5;
+
+        // Right logo position
+        const rightLogoX = pageWidth - margins.right - logoWidth;
+        const rightLogoY = 5;
+
+        // Add logos - Replace 'leftLogoUrl' and 'rightLogoUrl' with your actual logo URLs or base64 strings
+        pdf.addImage(logo1, leftLogoX, leftLogoY, logoWidth, logoHeight);
+        pdf.addImage(logo2, rightLogoX, rightLogoY, logoWidth, logoHeight);
     
             // Calculate available width for content
             const availableWidth = pageWidth - margins.left - margins.right;
@@ -1479,6 +1498,104 @@ const exportToExcel = async () => {
     try {
         setExportLoading(true);
 
+        const workbook = new ExcelJS.Workbook();
+        const worksheet = workbook.addWorksheet('Attendance Logs');
+
+        
+        // Helper function to convert URL to base64
+        const urlToBase64 = async (url) => {
+            try {
+                const response = await fetch(url);
+                const blob = await response.blob();
+                return new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = () => resolve(reader.result.split(',')[1]);
+                    reader.onerror = reject;
+                    reader.readAsDataURL(blob);
+                });
+            } catch (error) {
+                console.error("Error converting URL to base64:", error);
+                throw error;
+            }
+        };
+
+        // Helper function to handle different types of image inputs
+        const imageToBase64 = async (image) => {
+            if (!image) return null;
+
+            try {
+                // If image is already a base64 string
+                if (typeof image === 'string') {
+                    // Check if it's a URL
+                    if (image.startsWith('http') || image.startsWith('data:image')) {
+                        if (image.startsWith('data:image')) {
+                            // Already a base64 string, extract the actual base64 part
+                            return image.split(',')[1];
+                        } else {
+                            // It's a URL, convert to base64
+                            return await urlToBase64(image);
+                        }
+                    }
+                    // If it's already a raw base64 string
+                    return image;
+                }
+                // If image is a File or Blob
+                else if (image instanceof Blob || image instanceof File) {
+                    return new Promise((resolve, reject) => {
+                        const reader = new FileReader();
+                        reader.onload = () => resolve(reader.result.split(',')[1]);
+                        reader.onerror = reject;
+                        reader.readAsDataURL(image);
+                    });
+                }
+                throw new Error('Unsupported image format');
+            } catch (error) {
+                console.error("Error processing image:", error);
+                return null;
+            }
+        };
+
+
+        // Get base64 for both logos
+        const [logo1Base64, logo2Base64] = await Promise.all([
+            imageToBase64(logo1str),
+            imageToBase64(logo2str)
+        ]);
+
+        // Calculate dimensions once
+        const daysInMonth1 = new Date(duration.getFullYear(), duration.getMonth() + 1, 0).getDate();
+        const totalColumns = 4 + daysInMonth1 + 2; // Basic columns + days + total present + remarks
+
+        // Add logos if they were successfully converted
+        if (logo1Base64) {
+            const leftLogoId = workbook.addImage({
+                base64: logo1Base64,
+                extension: 'png',
+            });
+
+            worksheet.addImage(leftLogoId, {
+                tl: { col: 0, row: 0 },
+                ext: { width: 100, height: 50 },
+                editAs: 'oneCell'
+            });
+        }
+
+        if (logo2Base64) {
+            const rightLogoId = workbook.addImage({
+                base64: logo2Base64,
+                extension: 'png',
+            });
+
+            worksheet.addImage(rightLogoId, {
+                tl: { col: totalColumns - 3, row: 0 },
+                ext: { width: 100, height: 50 },
+                editAs: 'oneCell'
+            });
+        }
+
+        // Add row height for logo
+        worksheet.getRow(1).height = 50;
+
         const dataToExport = getCurrentData();
 
         // Calculate totals based on the filtered data
@@ -1521,8 +1638,8 @@ const exportToExcel = async () => {
         // Calculate new totals based on filtered data
         const filteredTotals = calculateFilteredTotals(dataToExport);
 
-        const workbook = new ExcelJS.Workbook();
-        const worksheet = workbook.addWorksheet('Attendance Logs');
+        // const workbook = new ExcelJS.Workbook();
+        // const worksheet = workbook.addWorksheet('Attendance Logs');
         const daysInMonth = new Date(duration.getFullYear(), duration.getMonth() + 1, 0).getDate();
 
         // Define columns first
@@ -1661,8 +1778,12 @@ const exportToExcel = async () => {
                 value: totalCount
             },
             {
-                label: 'Total Present',
+                label: 'Attendance as per the current month',
                 value: filteredTotals.totalPresent
+            },
+            {
+                label: 'Absenteeism',
+                value: Math.max(0, totalCount - filteredTotals.totalPresent).toString()
             },
             {
                 label: 'Regularized Attendance',
@@ -1690,10 +1811,10 @@ const exportToExcel = async () => {
         });
 
         // Add footer with total employees
-        const totalEmployees = dataToExport.filter(row => !row.isTotal && !row.isSummary).length;
-        worksheet.addRow([]); // Empty row for spacing
-        const footerRow = worksheet.addRow(['Total Employees:', totalEmployees]);
-        footerRow.font = { bold: true };
+        // const totalEmployees = dataToExport.filter(row => !row.isTotal && !row.isSummary).length;
+        // worksheet.addRow([]); // Empty row for spacing
+        // const footerRow = worksheet.addRow(['Total Employees:', totalEmployees]);
+        // footerRow.font = { bold: true };
 
         // Generate buffer and download
         const buffer = await workbook.xlsx.writeBuffer();
@@ -1718,6 +1839,9 @@ const exportToExcel = async () => {
         setExportLoading(false);
     }
 };
+
+
+
 
     const { calendar, columns } = createCalendarData();
 
