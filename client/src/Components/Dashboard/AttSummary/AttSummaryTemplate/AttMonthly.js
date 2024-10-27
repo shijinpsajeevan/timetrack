@@ -1336,33 +1336,33 @@ export default function AttMonthly({ locationid, duration }) {
     
             // Create summary rows with proper formatting
             const summaryRows = [
-                [
-                    'Attendance Required as per Contract',
-                    totalCount.toString(),
-                    '',
-                    '',
-                    ...Array(daysInMonth).fill(''),
-                    '',
-                    ''
-                ],
-                [
-                    'Attendance as per the current month',
-                    filteredTotals.totalPresent.toString(),
-                    '',
-                    '',
-                    ...Array(daysInMonth).fill(''),
-                    '',
-                    ''
-                ],
-                 [
-                    'Absenteeism',
-                    Math.max(0, totalCount - filteredTotals.totalPresent).toString(),,
-                    '',
-                    '',
-                    ...Array(daysInMonth).fill(''),
-                    '',
-                    ''
-                ],
+                // [
+                //     'Attendance Required as per Contract',
+                //     totalCount.toString(),
+                //     '',
+                //     '',
+                //     ...Array(daysInMonth).fill(''),
+                //     '',
+                //     ''
+                // ],
+                // [
+                //     'Attendance as per the current month',
+                //     filteredTotals.totalPresent.toString(),
+                //     '',
+                //     '',
+                //     ...Array(daysInMonth).fill(''),
+                //     '',
+                //     ''
+                // ],
+                //  [
+                //     'Absenteeism',
+                //     Math.max(0, totalCount - filteredTotals.totalPresent).toString(),,
+                //     '',
+                //     '',
+                //     ...Array(daysInMonth).fill(''),
+                //     '',
+                //     ''
+                // ],
                 [
                     'Regularized Attendance',
                     filteredTotals.totalME.toString(),
@@ -1459,14 +1459,14 @@ export default function AttMonthly({ locationid, duration }) {
                     pdf.text(
                         `Page ${data.pageNumber} of ${pdf.internal.getNumberOfPages()}`,
                         margins.left,
-                        pageHeight - margins.bottom
+                        pageHeight - 5
                     );
     
                     // Add generation date
                     pdf.text(
                         `Generated: ${new Date().toLocaleDateString()}`,
                         pageWidth - 60,
-                        pageHeight - margins.bottom
+                        pageHeight - 5
                     );
                 },
                 margin: margins,
@@ -1479,8 +1479,227 @@ export default function AttMonthly({ locationid, duration }) {
             pdf.setTextColor(0);
     
             const totalEmployees = dataToExport.filter(row => !row.isTotal && !row.isSummary).length;
-            const summary = `Total Employees: ${totalEmployees}`;
-            pdf.text(summary, margins.left, pageHeight - 20);
+            // const summary = `Total Employees: ${totalEmployees}`;
+            // pdf.text(summary, margins.left, pageHeight - 20);
+
+            ///Signature
+
+             // Add signature tables
+        const signatureTablesY = pageHeight - 60; // Position for signature tables
+        const tableWidth = 85; // Width of each signature table
+        const tableHeight = 40; // Height of each signature table
+        const spacing = 8; // Spacing between tables
+
+        // Calculate x positions for three tables
+        const table1X = margins.left;
+        const table2X = (pageWidth - tableWidth) / 2;
+        const table3X = pageWidth - margins.right - tableWidth;
+
+        // Function to draw a single signature table
+        // const drawSignatureTable = (startX, startY, title, data) => {
+        //     // Draw outer border
+        //     pdf.rect(startX, startY, tableWidth, tableHeight);
+            
+        //     // Draw title row
+        //     pdf.setFillColor(240, 240, 240);
+        //     pdf.rect(startX, startY, tableWidth, 8, 'F');
+        //     pdf.setFontSize(8);
+        //     pdf.text(title, startX + tableWidth/2, startY + 5, { align: 'center' });
+
+        //     // Draw rows
+        //     const rowHeight = 8;
+        //     let currentY = startY + 8;
+
+        //     // Helper function to draw a row
+        //     const drawRow = (label, value) => {
+        //         pdf.setFontSize(7);
+        //         pdf.line(startX, currentY, startX + tableWidth, currentY);
+        //         pdf.line(startX + 25, currentY, startX + 25, currentY + rowHeight);
+        //         pdf.text(label, startX + 2, currentY + 5);
+        //         if (value) {
+        //             pdf.text(value, startX + 27, currentY + 5);
+        //         }
+        //         currentY += rowHeight;
+        //     };
+
+        //     // Draw each row with data
+        //     Object.entries(data).forEach(([label, value]) => {
+        //         drawRow(label, value);
+        //     });
+        // };
+
+        // const drawSignatureTable = (startX, startY, title, data) => {
+        //     // Draw outer border
+        //     pdf.rect(startX, startY, tableWidth, tableHeight);
+            
+        //     // Draw title row with border
+        //     pdf.rect(startX, startY, tableWidth, 8); // Header border
+        //     pdf.setFillColor(255, 255, 255);
+        //     pdf.rect(startX, startY, tableWidth, 8, 'F');
+        //     pdf.setFontSize(8);
+        //     pdf.text(title, startX + tableWidth/2, startY + 5, { align: 'center' });
+            
+        //     // Draw border around title
+        //     pdf.line(startX, startY, startX + tableWidth, startY); // Top line
+        //     pdf.line(startX, startY + 8, startX + tableWidth, startY + 8); // Bottom line
+        //     pdf.line(startX, startY, startX, startY + 8); // Left line
+        //     pdf.line(startX + tableWidth, startY, startX + tableWidth, startY + 8); // Right line
+            
+        //     // Draw rows
+        //     const rowHeight = 8;
+        //     let currentY = startY + 8;
+        
+        //     // Helper function to draw a row
+        //     const drawRow = (label, value) => {
+        //         pdf.setFontSize(7);
+                
+        //         // Draw horizontal line for current row
+        //         pdf.line(startX, currentY, startX + tableWidth, currentY);
+                
+        //         // Draw vertical line separating label and value
+        //         pdf.line(startX + 25, currentY, startX + 25, currentY + rowHeight);
+                
+        //         // Add text
+        //         pdf.text(label, startX + 2, currentY + 5);
+        //         if (value) {
+        //             if (title === 'Attendance Summary') {
+        //                 // Right align numbers for attendance summary
+        //                 const valueWidth = pdf.getStringUnitWidth(value) * 7 / pdf.internal.scaleFactor;
+        //                 pdf.text(value, startX + tableWidth - 2 - valueWidth, currentY + 5);
+        //             } else {
+        //                 // Left align text for other tables
+        //                 pdf.text(value, startX + 27, currentY + 5);
+        //             }
+        //         }
+                
+        //         // Draw vertical borders
+        //         pdf.line(startX, currentY, startX, currentY + rowHeight); // Left border
+        //         pdf.line(startX + tableWidth, currentY, startX + tableWidth, currentY + rowHeight); // Right border
+                
+        //         currentY += rowHeight;
+        //     };
+        
+        //     // Draw each row with data
+        //     Object.entries(data).forEach(([label, value], index, array) => {
+        //         drawRow(label, value);
+                
+        //         // Draw bottom border for last row
+        //         if (index === array.length - 1) {
+        //             pdf.line(startX, currentY, startX + tableWidth, currentY);
+        //         }
+        //     });
+        // };
+
+        const drawSignatureTable = (startX, startY, title, data) => {
+            // Draw outer border
+            pdf.rect(startX, startY, tableWidth, tableHeight);
+            
+            // Draw title row with border
+            pdf.rect(startX, startY, tableWidth, 8); // Header border
+            pdf.setFillColor(255, 255, 255);
+            pdf.rect(startX, startY, tableWidth, 8, 'F');
+            pdf.setFontSize(8);
+            pdf.text(title, startX + tableWidth/2, startY + 5, { align: 'center' });
+            
+            // Draw border around title
+            pdf.line(startX, startY, startX + tableWidth, startY); // Top line
+            pdf.line(startX, startY + 8, startX + tableWidth, startY + 8); // Bottom line
+            pdf.line(startX, startY, startX, startY + 8); // Left line
+            pdf.line(startX + tableWidth, startY, startX + tableWidth, startY + 8); // Right line
+            
+            // Draw rows
+            const rowHeight = 8;
+            let currentY = startY + 8;
+        
+            // Helper function to draw a row with text wrapping
+            const drawRow = (label, value) => {
+                pdf.setFontSize(7);
+                
+                // Draw horizontal line for current row
+                pdf.line(startX, currentY, startX + tableWidth, currentY);
+                
+                // Calculate available widths for label and value
+                const labelWidth = 50; // Increased width for label
+                const valueWidth = tableWidth - labelWidth - 4; // Remaining width for value
+                
+                // Draw vertical line separating label and value
+                pdf.line(startX + labelWidth, currentY, startX + labelWidth, currentY + rowHeight);
+                
+                // Add text with wrapping if needed
+                
+                    // Split label text if it's too long
+                    const labelText = label;
+                    const words = labelText.split(' ');
+                    let line = '';
+                    let yOffset = 3;
+                    
+                    words.forEach((word, index) => {
+                        const testLine = line + word + ' ';
+                        const testWidth = pdf.getStringUnitWidth(testLine) * 7 / pdf.internal.scaleFactor;
+                        
+                        if (testWidth > labelWidth - 4) {
+                            // Draw current line
+                            pdf.text(line.trim(), startX + 2, currentY + yOffset);
+                            line = word + ' ';
+                            yOffset += 3;
+                        } else {
+                            line = testLine;
+                        }
+                        
+                        // Draw last line or single line
+                        if (index === words.length - 1) {
+                            pdf.text(line.trim(), startX + 2, currentY + yOffset);
+                        }
+                    });
+        
+                    // Right align the value
+                    const valueMetrics = pdf.getStringUnitWidth(value) * 7 / pdf.internal.scaleFactor;
+                    pdf.text(value, startX + tableWidth - 2 - valueMetrics, currentY + 5);
+               
+                
+                // Draw vertical borders
+                pdf.line(startX, currentY, startX, currentY + rowHeight); // Left border
+                pdf.line(startX + tableWidth, currentY, startX + tableWidth, currentY + rowHeight); // Right border
+                
+                currentY += rowHeight;
+            };
+        
+            // Draw each row with data
+            Object.entries(data).forEach(([label, value], index, array) => {
+                drawRow(label, value);
+                
+                // Draw bottom border for last row
+                if (index === array.length - 1) {
+                    pdf.line(startX, currentY, startX + tableWidth, currentY);
+                }
+            });
+        };
+
+        // Draw Company Representative table
+        drawSignatureTable(table1X, signatureTablesY, 'Company Representative', {
+            'Name': '',
+            'Designation': 'OPERATIONS MANAGER',
+            'Signature': '',
+            'Date': `${new Date().toLocaleDateString()}`
+        });
+
+        // Draw Attendance Summary table
+        drawSignatureTable(table2X, signatureTablesY, 'Attendance Summary', {
+            'Attendance required as per the contract.': totalCount.toString(),
+            'Attendance as per the current month': filteredTotals.totalPresent.toString(),
+            'This month\'s shortfall': Math.max(0, totalCount - filteredTotals.totalPresent).toString(),
+            'Consequent Absence': '0'
+        });
+
+        // Draw School Representative table
+        drawSignatureTable(table3X, signatureTablesY, 'School Representative', {
+            'Name': '',
+            'Designation': 'PRINCIPAL',
+            'Signature': '',
+            'Date': ''
+        });
+
+            ///end
     
             // Save the PDF
             const fileName = `${locationName}_Attendance_${duration.getFullYear()}_${(duration.getMonth() + 1).toString().padStart(2, '0')}.pdf`;
