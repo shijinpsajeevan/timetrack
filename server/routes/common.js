@@ -85,6 +85,73 @@ router.post("/getDeviceList",authorization,async (req, res) => {
 });
 
 
+// Get Contract Count / staff count
+
+router.get("/getContractCount",authorization,async(req,res)=>{
+    try {
+        console.log("GetContract count");
+    } catch (error) {
+        
+    }
+})
+
+
+//Get Holiday List
+
+router.get("/getHolidays", authorization, async (req, res) => {
+    try {
+        console.log("Get Holiday List from the database");
+        const { month, year } = req.query;
+        
+        if (!month || !year) {
+            return res.status(400).json({
+                success: false,
+                message: "Month and year are required parameters"
+            });
+        }
+
+        const pool = await poolPromise;
+        
+        // Create date range for the specified month
+        const startDate = new Date(year, month - 1, 1); // Month is 0-based in JavaScript
+        const endDate = new Date(year, month, 0); // Last day of the month
+
+        const query = `
+            SELECT 
+                HolidayId,
+                HolidayDate as date,
+                HolidayName as name
+            FROM dbo.Holidays 
+            WHERE RecordStatus = 1 
+            AND MONTH(HolidayDate) = @month 
+            AND YEAR(HolidayDate) = @year
+            ORDER BY HolidayDate`;
+
+        const result = await pool.request()
+            .input('month', sql.Int, month)
+            .input('year', sql.Int, year)
+            .query(query);
+
+        console.log("result from holiday",result);
+        
+
+        res.status(200).json({
+            success: true,
+            holidays: result.recordset
+        });
+
+    } catch (error) {
+        console.error("Error fetching holidays:", error);
+        res.status(500).json({
+            success: false,
+            message: "Failed to fetch holidays"
+        });
+    } finally {
+        sql.close();
+    }
+});
+
+
   //For taking the logs based on month - TYPE3
   router.post("/getDeviceLogs", authorization, async (req, res) => {
     try {

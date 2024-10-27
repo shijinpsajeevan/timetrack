@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Col, Card, Row, Empty, message, Button, Table, Space,Input, Typography} from 'antd';
+import { Col, Card, Row, Empty, message, Button, Table, Space, Input, Typography, Select, Tag, Divider  } from 'antd';
 import { EditOutlined, EllipsisOutlined, SettingOutlined, FileExcelOutlined, FilePdfOutlined, ClearOutlined } from '@ant-design/icons';
 import axios from 'axios';
 import ExcelJS from 'exceljs';
@@ -7,6 +7,7 @@ import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 
 const { Title, Text } = Typography;
+const { Option } = Select;
 
 export default function AttMonthly({ locationid, duration }) {
     const [loading, setLoading] = useState(true);
@@ -15,39 +16,268 @@ export default function AttMonthly({ locationid, duration }) {
     const [filteredData, setFilteredData] = useState([]);
     const [activeFilters, setActiveFilters] = useState({});
     const [remarks, setRemarks] = useState({});
-    const [locationName,setLocationName] = useState('');
-    
+    const [locationName, setLocationName] = useState('');
+    const [holidays, setHolidays] = useState([]);
+    const [contractType, setContractType] = useState(1); // Default to automated count
+    const [staffCount, setStaffCount] = useState(0);
+    const [totalCount, setTotalCount] = useState(0);
+    const [filteredStaffCount, setFilteredStaffCount] = useState(null);
+    const [filteredTotalCount, setFilteredTotalCount] = useState(null);
+
     const abortController = new AbortController();
 
+    // useEffect(() => {
+    //     if (locationid && duration && contractType) {
+    //         console.log("Data found", locationid, duration);
+    //         fetchLogs(locationid, duration);
+    //         fetchLocationName(locationid);
+    //         fetchHolidays(duration);
+    //         calculateStaffCount();
+    //         updateFilteredCounts();
+    //     } else {
+    //         console.log("Props not passed down to AttMonthly due to null value or incorrect selection");
+    //         setLoading(false);
+    //     }
+
+    //     return () => {
+    //         abortController.abort();
+    //     };
+    // }, [locationid, duration, contractType]);
+
+    // First useEffect for data fetching
     useEffect(() => {
-        if (locationid && duration) {
-            console.log("Data found", locationid, duration);
-            fetchLogs(locationid, duration);
-            fetchLocationName(locationid);
-        } else {
-            console.log("Props not passed down to AttMonthly due to null value or incorrect selection");
-            setLoading(false);
-        }
+        const fetchData = async () => {
+            clearAllFilters()
+            if (locationid && duration && contractType) {
+                setLoading(true);
+                try {
+                    // Fetch all data in parallel
+                    await Promise.all([
+                        fetchLogs(locationid, duration),
+                        fetchLocationName(locationid),
+                        fetchHolidays(duration)
+                    ]);
+                } catch (error) {
+                    console.error("Error initializing data:", error);
+                    message.error("Failed to initialize data");
+                } finally {
+                    setLoading(false);
+                }
+            } else {
+                console.log("Props not passed down to AttMonthly due to null value or incorrect selection");
+                setLoading(false);
+            }
+        };
+
+        fetchData();
 
         return () => {
             abortController.abort();
         };
-    }, [locationid, duration]);
+    }, [locationid, duration, contractType]); // Remove logs and filteredData from dependencies
+
+    // Second useEffect for calculations
+    useEffect(() => {
+        if (!loading && logs.length > 0) {
+            calculateStaffCount();
+            updateFilteredCounts();
+        }
+    }, [logs, filteredData, contractType, loading]);
+
+    // useEffect(() => {
+    //     calculateStaffCount();
+    //     updateFilteredCounts();
+    // }, [filteredData, logs, contractType]);
 
     const clearAllFilters = () => {
         setActiveFilters({});
         setFilteredData([]);
     };
 
+    const calculateWorkingDays = (employeeData) => {
+        console.log(employeeData,"for wokringdyacalc");
+        
+        if (!employeeData || employeeData.isSummary || employeeData.isTotal || employeeData.totalPresent || !employeeData.EmployeeCode) return 0;
+        const daysInMonth = new Date(duration.getFullYear(), duration.getMonth() + 1, 0).getDate();
+        let workingDays = 0;
+
+        for (let day = 1; day <= daysInMonth; day++) {
+            const status = employeeData[`day${day}`];
+            // Only count days that are not PH, SL, or WO
+            if (status !== 'PH' && status !== 'SL' && status !== 'WO') {
+                workingDays++;
+            console.log(workingDays);
+            
+            }
+        }
+        return workingDays;
+    };
+
+    const calculateStaffCount = async () => {
+        try {
+            const daysInMonth = new Date(duration.getFullYear(), duration.getMonth() + 1, 0).getDate();
+
+            switch (contractType) {
+                case 1: // Automated Count
+                const allData = getCurrentData().filter(record => !record.isTotal && !record.isSummary);
+
+                    const staffCount = allData.length;
+                    setStaffCount(staffCount);
+
+                    // Calculate total count excluding PH, SL, and WO days for each employee
+                    const totalWorkingDays = allData.reduce((sum, employee) => {
+                        return sum + calculateWorkingDays(employee);
+                    }, 0);
+
+                    setTotalCount(totalWorkingDays);
+                    break;
+
+                case 2: // Daily Contract
+                case 3: // Monthly Contract
+                    const type = contractType === 2 ? 'Daily' : 'Monthly';
+                    const response = await axios.get('http://localhost:3003/api/common/getContractCount', {
+                        params: {
+                            locationId: locationid,
+                            date: duration.toISOString(),
+                            contractType: type
+                        },
+                        headers: {
+                            'token': localStorage.getItem('token')
+                        }
+                    });
+
+                    if (response.data.success) {
+                        const count = response.data.staffCount;
+                        setStaffCount(count);
+
+                        // For daily/monthly contracts, calculate working days excluding PH, SL, WO
+                        const currentData = getCurrentData().filter(record => !record.isTotal);
+                        const avgWorkingDays = currentData.length > 0
+                            ? Math.floor(currentData.reduce((sum, employee) =>
+                                sum + calculateWorkingDays(employee), 0) / currentData.length)
+                            : 0;
+
+                        setTotalCount(type === 'Daily' ? count * avgWorkingDays : count);
+                    } else {
+                        message.error("Failed to fetch contract count");
+                    }
+                    break;
+            }
+
+            updateFilteredCounts();
+        } catch (error) {
+            console.error("Error calculating staff count:", error);
+            message.error("Failed to calculate staff count");
+        }
+    };
+
+    const updateFilteredCounts = () => {
+        const currentData = getCurrentData().filter(record => !record.isTotal);
+
+        if (isDataFiltered()) {
+            const filteredCount = currentData.length;
+            setFilteredStaffCount(filteredCount);
+
+            // Calculate filtered total count excluding PH, SL, and WO
+            const filteredWorkingDays = currentData.reduce((sum, employee) => {
+                return sum + calculateWorkingDays(employee);
+            }, 0);
+
+            setFilteredTotalCount(
+                contractType === 3 ? filteredCount : filteredWorkingDays
+            );
+        } else {
+            setFilteredStaffCount(null);
+            setFilteredTotalCount(null);
+        }
+    };
+
+    const renderContractSummary = () => {
+        const contractTypes = {
+            1: "Automated Count",
+            2: "Daily Contract",
+            3: "Monthly Contract"
+        };
+
+        return (
+            <div>
+                <Space direction="horizontal" size="middle">
+                    {/* <Text><strong>Contract Type:</strong> {contractTypes[contractType]}</Text> */}
+                    <Text>
+                        <strong>
+                            <Tag color="green">Employee Count <b>{staffCount}</b></Tag></strong>
+                        {/* {filteredStaffCount !== null && (
+                            <span className="text-gray-500 ml-2">
+                                (Filtered: {filteredStaffCount})
+                            </span>
+                        )} */}
+                    </Text>
+                    <Text>
+                            
+                        <strong>
+                        <Tag color="blue">Total Count for Month <b>{totalCount}</b></Tag></strong> 
+                        {/* {filteredTotalCount !== null && (
+                            <span className="text-gray-500 ml-2">
+                                (Filtered: {filteredTotalCount})
+                            </span>
+                        )} */}
+                    </Text>
+                    <Divider/>
+                </Space>
+              </div>
+            
+        );
+    };
+
+
+    // Add contract type selector in the existing render method
+    const renderControls = () => (
+        <Space size="middle" className="mb-4">
+            <Select
+                value={contractType}
+                onChange={(value) => {
+                    setContractType(value);
+                    setFilteredStaffCount(null);
+                    setFilteredTotalCount(null);
+                }}
+                style={{ width: 200 }}
+            >
+                <Option value={1}>Automated Count</Option>
+                <Option value={2}>Daily Contract</Option>
+                <Option value={3}>Monthly Contract</Option>
+            </Select>
+            <Button
+                type="primary"
+                icon={<FileExcelOutlined />}
+                onClick={exportToExcel}
+                loading={exportLoading}
+            >
+                Export to Excel
+            </Button>
+            <Button
+                type="primary"
+                icon={<FilePdfOutlined />}
+                onClick={exportToPdf}
+                loading={exportLoading}
+            >
+                Export to PDF
+            </Button>
+            {isDataFiltered() && (
+                <Button
+                    icon={<ClearOutlined />}
+                    onClick={() => {
+                        clearAllFilters();
+                        setFilteredStaffCount(null);
+                        setFilteredTotalCount(null);
+                    }}
+                >
+                    Clear All Filters
+                </Button>
+            )}
+        </Space>
+    );
+
     const calculateTotalPresent = (record) => {
-        // const daysInMonth = new Date(duration.getFullYear(), duration.getMonth() + 1, 0).getDate();
-        // let total = 0;
-        // for (let day = 1; day <= daysInMonth; day++) {
-        //     if (record[`day${day}`] === 'P' || record[`day${day}`] === 'ME') {
-        //         total++;
-        //     }
-        // }
-        // return total;
         if (!record || record.isTotal) return '';  // Skip calculation for summary row
         const daysInMonth = new Date(duration.getFullYear(), duration.getMonth() + 1, 0).getDate();
         let total = 0;
@@ -59,19 +289,25 @@ export default function AttMonthly({ locationid, duration }) {
         return total;
     };
 
+
+    const isDataFiltered = () => {
+        return Object.values(activeFilters).some(filter => filter && filter.length > 0);
+    };
+
     const calculateOverallTotals = (data) => {
+        // Filter out the summary row before calculating totals
+        const regularData = data.filter(record => !record.isTotal);
+
         let totalPresent = 0;
         let totalME = 0;
 
-        data.forEach(record => {
-            if (!record.isTotal) {  // Skip the summary row
-                const daysInMonth = new Date(duration.getFullYear(), duration.getMonth() + 1, 0).getDate();
-                for (let day = 1; day <= daysInMonth; day++) {
-                    if (record[`day${day}`] === 'P') {
-                        totalPresent++;
-                    } else if (record[`day${day}`] === 'ME') {
-                        totalME++;
-                    }
+        regularData.forEach(record => {
+            const daysInMonth = new Date(duration.getFullYear(), duration.getMonth() + 1, 0).getDate();
+            for (let day = 1; day <= daysInMonth; day++) {
+                if (record[`day${day}`] === 'P') {
+                    totalPresent++;
+                } else if (record[`day${day}`] === 'ME') {
+                    totalME++;
                 }
             }
         });
@@ -83,8 +319,11 @@ export default function AttMonthly({ locationid, duration }) {
         };
     };
 
-    // New function to calculate daily totals
+
     const calculateDailyTotals = (data) => {
+
+        const regularData = data.filter(record => !record.isTotal && record);
+
         const daysInMonth = new Date(duration.getFullYear(), duration.getMonth() + 1, 0).getDate();
         const totals = {
             dailyPresent: Array(daysInMonth).fill(0),
@@ -93,7 +332,7 @@ export default function AttMonthly({ locationid, duration }) {
             totalME: 0
         };
 
-        data.forEach(record => {
+        regularData.forEach(record => {
             for (let day = 1; day <= daysInMonth; day++) {
                 const status = record[`day${day}`];
                 if (status === 'P') {
@@ -116,6 +355,34 @@ export default function AttMonthly({ locationid, duration }) {
         }));
     };
 
+    const fetchHolidays = async (dateObject) => {
+        try {
+            const response = await axios.get('http://localhost:3003/api/common/getHolidays', {
+                params: {
+                    month: dateObject.getMonth() + 1,
+                    year: dateObject.getFullYear()
+                },
+                headers: {
+                    'token': localStorage.getItem('token')
+                },
+                signal: abortController.signal
+            });
+
+            if (response.data.success) {
+                const holidayDays = response.data.holidays.map(holiday =>
+                    new Date(holiday.date).getDate()
+                );
+                setHolidays(holidayDays);
+            } else {
+                message.error("Failed to fetch holidays");
+            }
+        } catch (error) {
+            if (!axios.isCancel(error)) {
+                console.error("Error fetching holidays:", error);
+                message.error("Failed to fetch holidays");
+            }
+        }
+    };
     const fetchLocationName = async (locationid) => {
         try {
             const token = localStorage.getItem('token');
@@ -128,7 +395,7 @@ export default function AttMonthly({ locationid, duration }) {
                     'token': token
                 }
             });
-            
+
             if (response.data.success) {
                 setLocationName(response.data.locationName);
             } else {
@@ -187,7 +454,298 @@ export default function AttMonthly({ locationid, duration }) {
         return date.toLocaleString('en-US', { weekday: 'long' });
     };
 
-   
+
+    // const createCalendarData = () => {
+    //     if (!duration) {
+    //         return { calendar: [], columns: [] };
+    //     }
+
+    //     const calendar = [];
+    //     const daysInMonth = new Date(duration.getFullYear(), duration.getMonth() + 1, 0).getDate();
+
+    //     const currentDay = new Date().getDate();
+    //     const isCurrentMonth = duration.getMonth() === new Date().getMonth() && duration.getFullYear() === new Date().getFullYear();
+
+    //     const columns = [
+    //         {
+    //             title: 'Employee Code',
+    //             dataIndex: 'EmployeeCode',
+    //             key: 'EmployeeCode',
+    //             width: 150,
+    //             fixed: 'left',
+    //             filteredValue: activeFilters.EmployeeCode || null,
+    //             filters: [...new Set(logs.map(log => log.EmployeeCode))].map(code => ({
+    //                 text: code,
+    //                 value: code,
+    //             })),
+    //             onFilter: (value, record) => record.EmployeeCode === value,
+    //             render: (text, record) => {
+    //                 if (record.isSummary) {
+    //                     return {
+    //                         children: text,
+    //                         props: { colSpan: 1 }
+    //                     };
+    //                 }
+    //                 return text;
+    //             }
+    //         },
+    //         {
+    //             title: 'Employee Name',
+    //             dataIndex: 'EmployeeName',
+    //             key: 'EmployeeName',
+    //             width: 200,
+    //             fixed: 'left',
+    //             filteredValue: activeFilters.EmployeeName || null,
+    //             filters: [...new Set(logs.map(log => log.EmployeeName))].map(name => ({
+    //                 text: name,
+    //                 value: name,
+    //             })),
+    //             onFilter: (value, record) => record.EmployeeName === value,
+    //             render: (text, record) => {
+    //                 if (record.isSummary) {
+    //                     return {
+    //                         children: record.totalPresent,
+    //                         props: { colSpan: columns.length - 1 }
+    //                     };
+    //                 }
+    //                 return text;
+    //             }
+    //         },
+    //         {
+    //             title: 'Gender',
+    //             dataIndex: 'Gender',
+    //             key: 'Gender',
+    //             width: 100,
+    //             filteredValue: activeFilters.Gender || null,
+    //             filters: [
+    //                 { text: 'Male', value: 'Male' },
+    //                 { text: 'Female', value: 'Female' },
+    //             ],
+    //             onFilter: (value, record) => record.Gender === value,
+    //             render: (text, record) => {
+    //                 if (record.isSummary) {
+    //                     return { props: { colSpan: 0 } };
+    //                 }
+    //                 return text;
+    //             }
+    //         },
+    //         {
+    //             title: 'Designation',
+    //             dataIndex: 'Designation',
+    //             key: 'Designation',
+    //             fixed: 'left',
+    //             width: 150,
+    //             filteredValue: activeFilters.Designation || null,
+    //             filters: [...new Set(logs.map(log => log.Designation))].map(designation => ({
+    //                 text: designation,
+    //                 value: designation,
+    //             })),
+    //             onFilter: (value, record) => record.Designation === value,
+    //             render: (text, record) => {
+    //                 if (record.isSummary) {
+    //                     return { props: { colSpan: 0 } };
+    //                 }
+    //                 return text;
+    //             }
+    //         },
+
+    //     ]
+
+    //         // Generate day columns with modified render function
+    // for (let day = 1; day <= daysInMonth; day++) {
+    //     const dayName = getDayName(duration.getFullYear(), duration.getMonth(), day);
+    //     columns.push({
+    //         title: (
+    //             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+    //                 <div style={{ fontSize: '0.8em', color: '#666' }}>{dayName}</div>
+    //                 <div>{day}</div>
+    //             </div>
+    //         ),
+    //         dataIndex: `day${day}`,
+    //         key: `day${day}`,
+    //         width: 60,
+    //         filters: [
+    //             { text: 'Present', value: 'P' },
+    //             { text: 'Absent', value: 'A' },
+    //             { text: 'Weekly Off', value: 'WO' },
+    //             { text: 'Manual Entry', value: 'ME' },
+    //         ],
+    //         onFilter: (value, record) => record[`day${day}`] === value,
+    //         render: (status, record) => {
+    //             if (record.isSummary) {
+    //                 return { props: { colSpan: 0 } };
+    //             }
+    //             return (
+    //                 <span style={{
+    //                     color: status === 'P' ? 'green'
+    //                         : status === 'A' ? 'red'
+    //                         : status === 'WO' ? 'blue'
+    //                         : status === 'ME' ? 'orange'
+    //                         : status === 'PH' ? 'purple'
+    //                         : 'black'
+    //                 }}>
+    //                     {(!isCurrentMonth || day <= currentDay) ? status || '' : ''}
+    //                 </span>
+    //             );
+    //         }
+    //     });
+    // }
+
+    //     // Add extra columns
+    //     columns.push(
+    //         {
+    //             title: 'Total Present',
+    //             dataIndex: 'totalPresent',
+    //             key: 'totalPresent',
+    //             width: 100,
+    //             fixed: 'right',
+    //             render: (_, record) => {
+    //                 if (record.isSummary) {
+    //                     return { props: { colSpan: 0 } };  // Hide for summary rows
+    //                 }
+    //                 if (record.isTotal) {
+    //                     const totals = calculateDailyTotals(calendar);
+    //                     return `Total : ${totals.totalPresent + totals.totalME}`;
+    //                 }
+    //                 return calculateTotalPresent(record);
+    //             }
+    //         },
+    //         {
+    //             title: 'Remarks',
+    //             dataIndex: 'remarks',
+    //             key: 'remarks',
+    //             width: 200,
+    //             fixed: 'right',
+    //             render: (_, record) => {
+    //                 if (record.isSummary) {
+    //                     return { props: { colSpan: 0 } };  // Hide for both summary and total rows
+    //                 }
+    //                 return (
+    //                     <Input
+    //                         placeholder="Enter remarks"
+    //                         value={remarks[record.EmployeeCode] || ''}
+    //                         onChange={(e) => handleRemarkChange(record.EmployeeCode, e.target.value)}
+    //                     />
+    //                 );
+    //             }
+    //         }
+    //     );
+
+    //     // Group logs by EmployeeCode
+    //     const groupedLogs = logs.reduce((acc, log) => {
+    //         const { EmployeeCode, EmployeeName, Gender, Designation, LogDate, IsWeeklyOff1, IsWeeklyOff2, WeeklyOff1Day, WeeklyOff2Day, AttendanceMarkingType } = log;
+    //         const day = new Date(LogDate).getDate();
+
+    //         if (!acc[EmployeeCode]) {
+    //             // Initialize employee record with all days marked as absent
+    //             acc[EmployeeCode] = {
+    //                 EmployeeCode,
+    //                 EmployeeName,
+    //                 Gender: Gender || '',
+    //                 Designation: Designation || '',
+    //             };
+
+    //             // First, mark all days as absent
+    //             for (let day = 1; day <= daysInMonth; day++) {
+    //                 acc[EmployeeCode][`day${day}`] = 'A';
+    //             }
+
+    //             // Then, mark all holidays as PH
+    //             holidays.forEach(holidayDay => {
+    //                 acc[EmployeeCode][`day${holidayDay}`] = 'PH';
+    //             });
+
+    //             // Then, mark weekly offs
+    //             for (let day = 1; day <= daysInMonth; day++) {
+    //                 const currentDayName = getDayNameLong(duration.getFullYear(), duration.getMonth(), day);
+    //                 if ((IsWeeklyOff1 && currentDayName === WeeklyOff1Day) ||
+    //                     (IsWeeklyOff2 && currentDayName === WeeklyOff2Day)) {
+    //                     // Only mark as WO if it's not already marked as PH
+    //                     if (acc[EmployeeCode][`day${day}`] !== 'PH') {
+    //                         acc[EmployeeCode][`day${day}`] = 'WO';
+    //                     }
+    //                 }
+    //             }
+    //         }
+
+    //         // Finally, mark attendance (P/ME will override WO/A but not PH)
+    //         if (LogDate) {
+    //             const day = new Date(LogDate).getDate();
+    //             const currentStatus = acc[EmployeeCode][`day${day}`];
+    //             // Only mark P/ME if the day is not PH and not WO
+    //             if (currentStatus !== 'PH' && currentStatus !== 'WO') {
+    //                 acc[EmployeeCode][`day${day}`] = AttendanceMarkingType === 'ME' ? 'ME' : 'P';
+    //             }
+    //         }
+
+    //         return acc;
+    //     }, {});
+
+    //     // Create the calendar data from grouped logs
+    //     for (const employee of Object.values(groupedLogs)) {
+    //         calendar.push(employee);
+    //     }
+
+    //     // Add summary row separately
+    //     const totals = calculateDailyTotals(calendar);
+    //     const summaryRow = {
+    //         EmployeeCode: 'TOTAL',
+    //         EmployeeName: '',
+    //         Gender: '',
+    //         Designation: '',
+    //         key: 'summary-row',
+    //         isTotal: true,
+    //     };
+
+    //     // Add daily totals to summary row
+    //     for (let day = 1; day <= daysInMonth; day++) {
+    //         // summaryRow[`day${day}`] = `P:${totals.dailyPresent[day - 1]}\nME:${totals.dailyME[day - 1]}`;
+    //         summaryRow[`day${day}`] = `${totals.dailyPresent[day - 1]}`;
+    //     }
+
+    //     // Add the three new summary rows
+    // const requiredAttendanceRow = {
+    //     EmployeeCode: 'Attendance Required as per Contract',
+    //     EmployeeName: '',
+    //     Gender: '',
+    //     Designation: '',
+    //     totalPresent: daysInMonth - holidays.length,
+    //     key: 'required-attendance',
+    //     isSummary: true
+    // };
+
+    // const totalPresentRow = {
+    //     EmployeeCode: 'Total Present',
+    //     EmployeeName: '',
+    //     Gender: '',
+    //     Designation: '',
+    //     totalPresent: totals.totalPresent,
+    //     key: 'total-present',
+    //     isSummary: true
+    // };
+
+    // const regularizedAttendanceRow = {
+    //     EmployeeCode: 'Regularized Attendance',
+    //     EmployeeName: '',
+    //     Gender: '',
+    //     Designation: '',
+    //     totalPresent: totals.totalME,
+    //     key: 'regularized-attendance',
+    //     isSummary: true
+    // };
+
+
+    //     calendar.push(
+    //     summaryRow,
+    //     requiredAttendanceRow,
+    //     totalPresentRow,
+    //     regularizedAttendanceRow
+    // );
+
+    //     return { calendar, columns, totals };
+    // };
+
+
     const createCalendarData = () => {
         if (!duration) {
             return { calendar: [], columns: [] };
@@ -195,66 +753,110 @@ export default function AttMonthly({ locationid, duration }) {
     
         const calendar = [];
         const daysInMonth = new Date(duration.getFullYear(), duration.getMonth() + 1, 0).getDate();
-
         const currentDay = new Date().getDate();
         const isCurrentMonth = duration.getMonth() === new Date().getMonth() && duration.getFullYear() === new Date().getFullYear();
-
+    
         const columns = [
-                    { 
-                        title: 'Employee Code', 
-                        dataIndex: 'EmployeeCode', 
-                        key: 'EmployeeCode', 
-                        width: 150,
-                        fixed: 'left',
-                        filteredValue: activeFilters.EmployeeCode || null,
-                        filters: [...new Set(logs.map(log => log.EmployeeCode))].map(code => ({
-                            text: code,
-                            value: code,
-                        })),
-                        onFilter: (value, record) => record.EmployeeCode === value,
-                    },
-                    { 
-                        title: 'Employee Name', 
-                        dataIndex: 'EmployeeName', 
-                        key: 'EmployeeName', 
-                        width: 200,
-                        fixed: 'left',
-                        filteredValue: activeFilters.EmployeeName || null,
-                        filters: [...new Set(logs.map(log => log.EmployeeName))].map(name => ({
-                            text: name,
-                            value: name,
-                        })),
-                        onFilter: (value, record) => record.EmployeeName === value,
-                    },
-                    { 
-                        title: 'Gender', 
-                        dataIndex: 'Gender', 
-                        key: 'Gender', 
-                        width: 100,
-                        filteredValue: activeFilters.Gender || null,
-                        filters: [
-                            { text: 'Male', value: 'Male' },
-                            { text: 'Female', value: 'Female' },
-                        ],
-                        onFilter: (value, record) => record.Gender === value,
-                    },
-                    { 
-                        title: 'Designation', 
-                        dataIndex: 'Designation', 
-                        key: 'Designation', 
-                        fixed: 'left',
-                        width: 150,
-                        filteredValue: activeFilters.Designation || null,
-                        filters: [...new Set(logs.map(log => log.Designation))].map(designation => ({
-                            text: designation,
-                            value: designation,
-                        })),
-                        onFilter: (value, record) => record.Designation === value,
-                    },
-                    
-                ]
-
-        // Generate columns for each day in the month
+            {
+                title: 'Employee Code',
+                dataIndex: 'EmployeeCode',
+                key: 'EmployeeCode',
+                width: 150,
+                fixed: 'left',
+                filteredValue: activeFilters.EmployeeCode || null,
+                filters: [...new Set(logs.map(log => log.EmployeeCode))].map(code => ({
+                    text: code,
+                    value: code,
+                })),
+                onFilter: (value, record) => {
+                    // Skip filtering for summary rows
+                    if (record.isSummary || record.isTotal) return true;
+                    return record.EmployeeCode === value;
+                },
+                render: (text, record) => {
+                    if (record.isSummary) {
+                        return {
+                            children: text,
+                            props: { colSpan: 1 }
+                        };
+                    }
+                    return text;
+                }
+            },
+            {
+                title: 'Employee Name',
+                dataIndex: 'EmployeeName',
+                key: 'EmployeeName',
+                width: 200,
+                fixed: 'left',
+                filteredValue: activeFilters.EmployeeName || null,
+                filters: [...new Set(logs.map(log => log.EmployeeName))].map(name => ({
+                    text: name,
+                    value: name,
+                })),
+                onFilter: (value, record) => {
+                    // Skip filtering for summary rows
+                    if (record.isSummary || record.isTotal) return true;
+                    return record.EmployeeName === value;
+                },
+                render: (text, record) => {
+                    if (record.isSummary) {
+                        return {
+                            children: record.totalPresent,
+                            props: { colSpan: columns.length - 1 }
+                        };
+                    }
+                    return text;
+                }
+            },
+            {
+                title: 'Gender',
+                dataIndex: 'Gender',
+                key: 'Gender',
+                width: 100,
+                filteredValue: activeFilters.Gender || null,
+                filters: [
+                    { text: 'Male', value: 'Male' },
+                    { text: 'Female', value: 'Female' },
+                ],
+                onFilter: (value, record) => {
+                    // Skip filtering for summary rows
+                    if (record.isSummary || record.isTotal) return true;
+                    return record.Gender === value;
+                },
+                render: (text, record) => {
+                    if (record.isSummary) {
+                        return { props: { colSpan: 0 } };
+                    }
+                    return text;
+                }
+            },
+            {
+                title: 'Designation',
+                dataIndex: 'Designation',
+                key: 'Designation',
+                fixed: 'left',
+                width: 150,
+                filteredValue: activeFilters.Designation || null,
+                filters: [...new Set(logs.map(log => log.Designation))].map(designation => ({
+                    text: designation,
+                    value: designation,
+                })),
+                onFilter: (value, record) => {
+                    // Skip filtering for summary rows
+                    if (record.isSummary || record.isTotal) return true;
+                    return record.Designation === value;
+                },
+                render: (text, record) => {
+                    if (record.isSummary) {
+                        return { props: { colSpan: 0 } };
+                    }
+                    return text;
+                }
+            }
+        ];
+    
+        // Generate day columns
         for (let day = 1; day <= daysInMonth; day++) {
             const dayName = getDayName(duration.getFullYear(), duration.getMonth(), day);
             columns.push({
@@ -273,33 +875,58 @@ export default function AttMonthly({ locationid, duration }) {
                     { text: 'Weekly Off', value: 'WO' },
                     { text: 'Manual Entry', value: 'ME' },
                 ],
-                onFilter: (value, record) => record[`day${day}`] === value,
-                render: (status, record) => (
-                    <span style={{ 
-                        color: status === 'P' ? 'green' 
-                            : status === 'A' ? 'red' 
-                            : status === 'WO' ? 'blue'
-                            : status === 'ME' ? 'orange'
-                            : 'black' 
-                    }}>
-                        {(!isCurrentMonth || day <= currentDay) ? status || '' : ''}
-                    </span>
-                ),
+                onFilter: (value, record) => {
+                    // Skip filtering for summary rows
+                    if (record.isSummary || record.isTotal) return true;
+                    return record[`day${day}`] === value;
+                },
+                render: (status, record) => {
+                    if (record.isSummary) {
+                        return { props: { colSpan: 0 } };
+                    }
+                    return (
+                        <span style={{
+                            color: status === 'P' ? 'green'
+                                : status === 'A' ? 'red'
+                                : status === 'WO' ? 'blue'
+                                : status === 'ME' ? 'orange'
+                                : status === 'PH' ? 'purple'
+                                : 'black'
+                        }}>
+                            {(!isCurrentMonth || day <= currentDay) ? status || '' : ''}
+                        </span>
+                    );
+                }
             });
         }
     
         // Add extra columns
         columns.push(
-            { 
-                title: 'Total Present', 
-                dataIndex: 'totalPresent', 
-                key: 'totalPresent', 
-                width: 100, 
+            {
+                title: 'Total Present',
+                dataIndex: 'totalPresent',
+                key: 'totalPresent',
+                width: 100,
                 fixed: 'right',
                 render: (_, record) => {
+                    if (record.isSummary) {
+                        return { props: { colSpan: 0 } };
+                    }
                     if (record.isTotal) {
-                        const totals = calculateDailyTotals(calendar);
-                        // return `Biometric:${totals.totalPresent}\n Manual:${totals.totalME} \n Total:${totals.totalPresent + totals.totalME}`;
+                        // Calculate totals only for filtered/visible records
+                        const visibleRecords = calendar.filter(r => {
+                            if (r.isSummary || r.isTotal) return false;
+                            return columns.every(col => {
+                                if (!col.onFilter) return true;
+                                if (!col.filteredValue || col.filteredValue.length === 0) return true;
+                                return col.filteredValue.some(filterValue => 
+                                    col.onFilter(filterValue, r)
+                                );
+                            });
+                        });
+                        const totals = calculateDailyTotals(visibleRecords);
+                        console.log(totals,"zz");
+                        
                         return `Total : ${totals.totalPresent + totals.totalME}`;
                     }
                     return calculateTotalPresent(record);
@@ -311,21 +938,24 @@ export default function AttMonthly({ locationid, duration }) {
                 key: 'remarks',
                 width: 200,
                 fixed: 'right',
-                render: (_, record) => (
-                    record.isTotal ? null : 
-                    <Input
-                        placeholder="Enter remarks"
-                        value={remarks[record.EmployeeCode] || ''}
-                        onChange={(e) => handleRemarkChange(record.EmployeeCode, e.target.value)}
-                    />
-                )
+                render: (_, record) => {
+                    if (record.isSummary) {
+                        return { props: { colSpan: 0 } };
+                    }
+                    return (
+                        <Input
+                            placeholder="Enter remarks"
+                            value={remarks[record.EmployeeCode] || ''}
+                            onChange={(e) => handleRemarkChange(record.EmployeeCode, e.target.value)}
+                        />
+                    );
+                }
             }
         );
     
         // Group logs by EmployeeCode
         const groupedLogs = logs.reduce((acc, log) => {
             const { EmployeeCode, EmployeeName, Gender, Designation, LogDate, IsWeeklyOff1, IsWeeklyOff2, WeeklyOff1Day, WeeklyOff2Day, AttendanceMarkingType } = log;
-            const day = new Date(LogDate).getDate();
     
             if (!acc[EmployeeCode]) {
                 acc[EmployeeCode] = {
@@ -333,29 +963,156 @@ export default function AttMonthly({ locationid, duration }) {
                     EmployeeName,
                     Gender: Gender || '',
                     Designation: Designation || '',
-                    ...Array.from({ length: daysInMonth }, (_, index) => ({ [`day${index + 1}`]: 'A' })).reduce((a, b) => Object.assign(a, b), {}),
                 };
-            }
     
-            acc[EmployeeCode][`day${day}`] = AttendanceMarkingType === 'ME' ? 'ME' : 'P';
+                // Mark all days as absent initially
+                for (let day = 1; day <= daysInMonth; day++) {
+                    acc[EmployeeCode][`day${day}`] = 'A';
+                }
     
-            // Assign Weekly Offs
-            for (let d = 1; d <= daysInMonth; d++) {
-                const currentDayName = getDayNameLong(duration.getFullYear(), duration.getMonth(), d);
-                if ((IsWeeklyOff1 && currentDayName === WeeklyOff1Day) || (IsWeeklyOff2 && currentDayName === WeeklyOff2Day)) {
-                    acc[EmployeeCode][`day${d}`] = 'WO';
+                // Mark holidays
+                holidays.forEach(holidayDay => {
+                    acc[EmployeeCode][`day${holidayDay}`] = 'PH';
+                });
+    
+                // Mark weekly offs
+                for (let day = 1; day <= daysInMonth; day++) {
+                    const currentDayName = getDayNameLong(duration.getFullYear(), duration.getMonth(), day);
+                    if ((IsWeeklyOff1 && currentDayName === WeeklyOff1Day) ||
+                        (IsWeeklyOff2 && currentDayName === WeeklyOff2Day)) {
+                        if (acc[EmployeeCode][`day${day}`] !== 'PH') {
+                            acc[EmployeeCode][`day${day}`] = 'WO';
+                        }
+                    }
                 }
             }
+    
+            // Mark attendance
+            if (LogDate) {
+                const day = new Date(LogDate).getDate();
+                const currentStatus = acc[EmployeeCode][`day${day}`];
+                if (currentStatus !== 'PH' && currentStatus !== 'WO') {
+                    acc[EmployeeCode][`day${day}`] = AttendanceMarkingType === 'ME' ? 'ME' : 'P';
+                }
+            }
+    
             return acc;
         }, {});
     
-        // Create the calendar data from grouped logs
+        // Create calendar data
         for (const employee of Object.values(groupedLogs)) {
             calendar.push(employee);
         }
     
-        // Add summary row separately
-        const totals = calculateDailyTotals(calendar);
+        // Function to get filtered records
+        const getFilteredRecords = () => {
+            return calendar.filter(record => {
+                if (record.isSummary || record.isTotal) return false;
+                return columns.every(col => {
+                    if (!col.onFilter) return true;
+                    if (!col.filteredValue || col.filteredValue.length === 0) return true;
+                    return col.onFilter(col.filteredValue[0], record);
+                });
+            });
+        };
+    
+        // Calculate totals for filtered data
+        const filteredRecords = getFilteredRecords();
+        const totals = calculateDailyTotals(filteredRecords);
+    
+        // Create summary rows
+        const summaryRow = {
+            EmployeeCode: 'TOTAL',
+            EmployeeName: '',
+            Gender: '',
+            Designation: '',
+            key: 'summary-row',
+            isTotal: true,
+        };
+    
+        // Add daily totals to summary row
+        for (let day = 1; day <= daysInMonth; day++) {
+            summaryRow[`day${day}`] = `${totals.dailyPresent[day - 1]}`;
+        }
+    
+        const requiredAttendanceRow = {
+            EmployeeCode: 'Attendance Required as per Contract',
+            EmployeeName: '',
+            Gender: '',
+            Designation: '',
+            totalPresent: totalCount,
+            key: 'required-attendance',
+            isSummary: true
+        };
+    
+        const totalPresentRow = {
+            EmployeeCode: 'Total Present',
+            EmployeeName: '',
+            Gender: '',
+            Designation: '',
+            totalPresent: totals.totalPresent,
+            key: 'total-present',
+            isSummary: true
+        };
+
+        const Absenteeism = {
+            EmployeeCode: 'Absenteeism',
+            EmployeeName: '',
+            Gender: '',
+            Designation: '',
+            totalPresent: Math.max(0, totalCount - totals.totalPresent),
+            key: 'Absenteeism',
+            isSummary: true
+        };
+    
+        const regularizedAttendanceRow = {
+            EmployeeCode: 'Regularized Attendance',
+            EmployeeName: '',
+            Gender: '',
+            Designation: '',
+            totalPresent: totals.totalME,
+            key: 'regularized-attendance',
+            isSummary: true
+        };
+    
+        // Add summary rows to calendar
+        calendar.push(
+            summaryRow,
+            requiredAttendanceRow,
+            totalPresentRow,
+            Absenteeism,
+            regularizedAttendanceRow
+        );
+    
+        return { calendar, columns, totals };
+    };
+
+    const renderSummary = (currentPageData) => {
+        // Get the summary row (last row) from the current data
+        const summaryRow = currentPageData.find(record => record.isTotal);
+        if (!summaryRow) return null;
+
+        // Calculate totals from the non-summary rows
+        const dataWithoutSummary = currentPageData.filter(record => !record.isTotal);
+        const totals = calculateDailyTotals(dataWithoutSummary);
+
+        return (
+            <div className="bg-gray-50 mt-4 text-left p-4">
+                <Space size="large">
+                    <Text className="font-bold">Summary:</Text>
+                    <Text>Biometric Attendance (P): {totals.totalPresent}</Text>
+                    <Text>Manual Entry (ME): {totals.totalME}</Text>
+                    <Text className="font-bold">Total Present: {totals.totalPresent + totals.totalME}</Text>
+                </Space>
+            </div>
+        );
+    };
+
+    const createSummaryRow = (data) => {
+        const dataWithoutSummary = data.filter(record => !record.isTotal);
+        const totals = calculateDailyTotals(dataWithoutSummary);
+        const daysInMonth = new Date(duration.getFullYear(), duration.getMonth() + 1, 0).getDate();
+
         const summaryRow = {
             EmployeeCode: 'TOTAL',
             EmployeeName: '',
@@ -364,93 +1121,104 @@ export default function AttMonthly({ locationid, duration }) {
             key: 'summary-row',
             isTotal: true
         };
-    
-        // Add daily totals to summary row
+
+        // Add daily totals
         for (let day = 1; day <= daysInMonth; day++) {
-            summaryRow[`day${day}`] = `P:${totals.dailyPresent[day - 1]}\nME:${totals.dailyME[day - 1]}`;
+            const presentCount = totals.dailyPresent[day - 1];
+            const meCount = totals.dailyME[day - 1];
+            // Show both biometric and manual entries in the total
+            summaryRow[`day${day}`] = `${presentCount + meCount}`;
         }
-    
-        calendar.push(summaryRow);
-    
-        return { calendar, columns, totals };
-    };
 
-    const renderSummary = (data) => {
-        const totals = calculateOverallTotals(data);
-        return (
-            <div style={{  background: '#fafafa', marginTop: '16px' ,textAlign:'left'}}>
-                <Space direction="horizontal" size="large">
-                    <Text strong>Summary:</Text>
-                    <Text>Biometric Attendance (P): {totals.totalPresent}</Text>
-                    <Text>Manual Entry (ME): {totals.totalME}</Text>
-                    <Text strong>Total Present: {totals.grandTotal}</Text>
-                </Space>
-            </div>
-        );
+        return summaryRow;
     };
-
-    
 
     const handleTableChange = (pagination, filters, sorter) => {
-
         const hasActiveFilters = Object.values(filters).some(filter => filter && filter.length > 0);
+        setActiveFilters(filters);
 
-        setActiveFilters(filters); // Store active filters
         const { calendar } = createCalendarData();
-        let result = [...calendar];
+        let dataWithoutSummary = calendar.filter(record => !record.isTotal);
 
-
-         if (hasActiveFilters) {
-            // Apply all active filters
-            Object.keys(filters).forEach(key => {
-                const selectedFilters = filters[key];
-                if (selectedFilters && selectedFilters.length > 0) {
-                    result = result.filter(record => selectedFilters.includes(record[key]));
-                }
+        if (hasActiveFilters) {
+            // Apply filters to the data
+            let filteredDataRows = dataWithoutSummary.filter(record => {
+                return Object.keys(filters).every(key => {
+                    const selectedFilters = filters[key];
+                    return !selectedFilters || selectedFilters.length === 0 || selectedFilters.includes(record[key]);
+                });
             });
-            setFilteredData(result);
+
+            // Create new summary row based on filtered data
+            const summaryRow = createSummaryRow(filteredDataRows);
+
+            // Combine filtered data with new summary row
+            const finalData = [...filteredDataRows, summaryRow];
+            setFilteredData(finalData);
         } else {
-            // If no filters are active, reset to original data
             setFilteredData([]);
         }
     };
 
-    
+
     const getCurrentData = () => {
         const { calendar } = createCalendarData();
-        // Return filtered data if there are active filters, otherwise return all data
-        return Object.values(activeFilters).some(filter => filter && filter.length > 0)
-            ? filteredData
-            : calendar;
+        return filteredData.length > 0 ? filteredData : calendar;
     };
 
-    
+
 
     const getMonthYearString = () => {
-        const months = ['January', 'February', 'March', 'April', 'May', 'June', 
-                       'July', 'August', 'September', 'October', 'November', 'December'];
+        const months = ['January', 'February', 'March', 'April', 'May', 'June',
+            'July', 'August', 'September', 'October', 'November', 'December'];
         return `${months[duration.getMonth()]} ${duration.getFullYear()}`;
     };
-
 
     const exportToPdf = async () => {
         try {
             setExportLoading(true);
-            
-            // Use filtered data if available, otherwise use all data
+    
+            // Use filtered data if available
             const dataToExport = getCurrentData();
-            
-            if (dataToExport.length === 0) {
+    
+            if (!dataToExport || dataToExport.length === 0) {
                 message.warning("No attendance data available to export.");
                 return;
             }
     
-            const { calendar } = createCalendarData();
-            if (calendar.length === 0) {
-                message.warning("No attendance data available to export.");
-                return;
-            }
+            // Calculate totals based on the filtered data
+            const calculateFilteredTotals = (filteredData) => {
+                const daysInMonth = new Date(duration.getFullYear(), duration.getMonth() + 1, 0).getDate();
+                const dailyPresent = Array(daysInMonth).fill(0);
+                const dailyME = Array(daysInMonth).fill(0);
+                let totalPresent = 0;
+                let totalME = 0;
     
+                // Calculate daily totals from filtered data
+                filteredData.forEach(employee => {
+                    if (!employee.isTotal && !employee.isSummary) {
+                        for (let day = 1; day <= daysInMonth; day++) {
+                            const status = employee[`day${day}`];
+                            if (status === 'P') {
+                                dailyPresent[day - 1]++;
+                                totalPresent++;
+                            } else if (status === 'ME') {
+                                dailyME[day - 1]++;
+                                totalME++;
+                            }
+                        }
+                    }
+                });
+    
+                return {
+                    dailyPresent,
+                    dailyME,
+                    totalPresent,
+                    totalME
+                };
+            };
+    
+            const filteredTotals = calculateFilteredTotals(dataToExport);
             const daysInMonth = new Date(duration.getFullYear(), duration.getMonth() + 1, 0).getDate();
     
             // Initialize PDF in landscape
@@ -475,15 +1243,15 @@ export default function AttMonthly({ locationid, duration }) {
     
             // Define fixed column widths (in mm)
             const columnWidths = {
-                employeeCode: Math.floor(availableWidth * 0.05),    // 7% of available width
-            name: Math.floor(availableWidth * 0.10),            // 13% of available width
-            gender: Math.floor(availableWidth * 0.04),          // 4% of available width
-            designation: Math.floor(availableWidth * 0.05),     // 10% of available width
-            totalPresent: Math.floor(availableWidth * 0.04),    // 5% of available width
-            remarks: Math.floor(availableWidth * 0.07)
+                employeeCode: Math.floor(availableWidth * 0.05),
+                name: Math.floor(availableWidth * 0.10),
+                gender: Math.floor(availableWidth * 0.04),
+                designation: Math.floor(availableWidth * 0.05),
+                totalPresent: Math.floor(availableWidth * 0.04),
+                remarks: Math.floor(availableWidth * 0.07)
             };
     
-            // Calculate width for date columns (remaining width divided equally)
+            // Calculate width for date columns
             const fixedColumnsWidth = Object.values(columnWidths).reduce((a, b) => a + b, 0);
             const remainingWidth = availableWidth - fixedColumnsWidth;
             const dateColumnWidth = Math.min(7, Math.floor(remainingWidth / daysInMonth)) + 0.2;
@@ -493,11 +1261,11 @@ export default function AttMonthly({ locationid, duration }) {
             const title = `${locationName}`;
             const titleWidth = pdf.getStringUnitWidth(title) * pdf.getFontSize() / pdf.internal.scaleFactor;
             pdf.text(title, (pageWidth - titleWidth) / 2, 15);
-
+    
             // Second title
-            const title2 =  `Attendance Report - ${getMonthYearString()}`;// Replace with your actual title
+            const title2 = `Attendance Report - ${getMonthYearString()}`;
             const title2Width = pdf.getStringUnitWidth(title2) * pdf.getFontSize() / pdf.internal.scaleFactor;
-            pdf.text(title2, (pageWidth - title2Width) / 2, 22); // Centered at y = 25 (below the first title)
+            pdf.text(title2, (pageWidth - title2Width) / 2, 22);
     
             // Prepare headers
             const headers = [
@@ -506,7 +1274,7 @@ export default function AttMonthly({ locationid, duration }) {
                     'Name',
                     'Gender',
                     'Designation',
-                    ...Array.from({ length: daysInMonth }, (_, i) => 
+                    ...Array.from({ length: daysInMonth }, (_, i) =>
                         getDayName(duration.getFullYear(), duration.getMonth(), i + 1)
                     ),
                     'Total Present',
@@ -523,16 +1291,72 @@ export default function AttMonthly({ locationid, duration }) {
                 ]
             ];
     
-            // Prepare table data
-            const tableData = dataToExport.map(employee => [
-                employee.EmployeeCode || '',
-                employee.EmployeeName || '',
-                employee.Gender || '',
-                employee.Designation || '',
-                ...Array.from({ length: daysInMonth }, (_, i) => employee[`day${i + 1}`] || 'N/A'),
-                calculateTotalPresent(employee),
-                remarks[employee.EmployeeCode] || ''
-            ]);
+            // Prepare table data (excluding total row and summary rows)
+            const employeeData = dataToExport
+                .filter(row => !row.isTotal && !row.isSummary)
+                .map(employee => [
+                    employee.EmployeeCode || '',
+                    employee.EmployeeName || '',
+                    employee.Gender || '',
+                    employee.Designation || '',
+                    ...Array.from({ length: daysInMonth }, (_, i) => employee[`day${i + 1}`] || ''),
+                    calculateTotalPresent(employee),
+                    remarks[employee.EmployeeCode] || ''
+                ]);
+    
+            // Create total row
+            const totalRow = [
+                'TOTAL',
+                '',
+                '',
+                '',
+                ...Array.from({ length: daysInMonth }, (_, i) => `${filteredTotals.dailyPresent[i]}`),
+                `Total : ${filteredTotals.totalPresent + filteredTotals.totalME}`,
+                ''
+            ];
+    
+            // Create summary rows with proper formatting
+            const summaryRows = [
+                [
+                    'Attendance Required as per Contract',
+                    totalCount.toString(),
+                    '',
+                    '',
+                    ...Array(daysInMonth).fill(''),
+                    '',
+                    ''
+                ],
+                [
+                    'Attendance as per the current month',
+                    filteredTotals.totalPresent.toString(),
+                    '',
+                    '',
+                    ...Array(daysInMonth).fill(''),
+                    '',
+                    ''
+                ],
+                 [
+                    'Absenteeism',
+                    Math.max(0, totalCount - filteredTotals.totalPresent).toString(),,
+                    '',
+                    '',
+                    ...Array(daysInMonth).fill(''),
+                    '',
+                    ''
+                ],
+                [
+                    'Regularized Attendance',
+                    filteredTotals.totalME.toString(),
+                    '',
+                    '',
+                    ...Array(daysInMonth).fill(''),
+                    '',
+                    ''
+                ]
+            ];
+    
+            // Combine all rows in the desired order
+            const tableData = [...employeeData, totalRow, ...summaryRows];
     
             // Create column styles object
             const columnStyles = {
@@ -572,12 +1396,12 @@ export default function AttMonthly({ locationid, duration }) {
                     fontStyle: 'bold',
                     fontSize: 6,
                 },
-                didParseCell: function(data) {
+                didParseCell: function (data) {
                     // Style attendance status cells
-                    if (data.section === 'body' && data.column.index >= 4 && 
+                    if (data.section === 'body' && data.column.index >= 4 &&
                         data.column.index < 4 + daysInMonth) {
                         const value = data.cell.raw;
-                        switch(value) {
+                        switch (value) {
                             case 'P':
                                 data.cell.styles.fillColor = [200, 255, 200];
                                 data.cell.styles.textColor = [0, 100, 0];
@@ -592,19 +1416,33 @@ export default function AttMonthly({ locationid, duration }) {
                                 break;
                         }
                     }
+                    
+                    // Style total row and summary rows
+                    if (data.section === 'body') {
+                        if (data.row.index === employeeData.length) {
+                            // Total row
+                            data.cell.styles.fontStyle = 'bold';
+                        } else if (data.row.index > employeeData.length) {
+                            // Summary rows
+                            data.cell.styles.fontStyle = 'bold';
+                            if (data.column.index <= 1) {
+                                data.cell.styles.halign = 'left';
+                            }
+                        }
+                    }
                 },
-                didDrawPage: function(data) {
+                didDrawPage: function (data) {
                     // Add footer
                     pdf.setFontSize(8);
                     pdf.setTextColor(100);
-                    
+    
                     // Add page number
                     pdf.text(
                         `Page ${data.pageNumber} of ${pdf.internal.getNumberOfPages()}`,
                         margins.left,
                         pageHeight - margins.bottom
                     );
-                    
+    
                     // Add generation date
                     pdf.text(
                         `Generated: ${new Date().toLocaleDateString()}`,
@@ -615,18 +1453,19 @@ export default function AttMonthly({ locationid, duration }) {
                 margin: margins,
             });
     
-            // Add summary on the last page
+            // Add total employees on the last page
             const lastPage = pdf.internal.getNumberOfPages();
             pdf.setPage(lastPage);
             pdf.setFontSize(8);
             pdf.setTextColor(0);
     
-            const totalEmployees = calendar.length;
+            const totalEmployees = dataToExport.filter(row => !row.isTotal && !row.isSummary).length;
             const summary = `Total Employees: ${totalEmployees}`;
             pdf.text(summary, margins.left, pageHeight - 20);
     
             // Save the PDF
-            pdf.save(`Attendance_${duration.getFullYear()}_${duration.getMonth() + 1}.pdf`);
+            const fileName = `${locationName}_Attendance_${duration.getFullYear()}_${(duration.getMonth() + 1).toString().padStart(2, '0')}.pdf`;
+            pdf.save(fileName);
             message.success('PDF exported successfully');
         } catch (error) {
             console.error("Error exporting to PDF:", error);
@@ -636,70 +1475,135 @@ export default function AttMonthly({ locationid, duration }) {
         }
     };
 
-    const exportToExcel = async () => {
-        try {
-            setExportLoading(true);
+const exportToExcel = async () => {
+    try {
+        setExportLoading(true);
 
-            const dataToExport = getCurrentData();
+        const dataToExport = getCurrentData();
 
-            const { calendar } = createCalendarData();
-            if (calendar.length === 0) {
-                message.warning("No attendance data available to export.");
-                return;
-            }
-
-            const workbook = new ExcelJS.Workbook();
-            const worksheet = workbook.addWorksheet('Attendance Logs');
+        // Calculate totals based on the filtered data
+        const calculateFilteredTotals = (filteredData) => {
             const daysInMonth = new Date(duration.getFullYear(), duration.getMonth() + 1, 0).getDate();
+            const dailyPresent = Array(daysInMonth).fill(0);
+            const dailyME = Array(daysInMonth).fill(0);
+            let totalPresent = 0;
+            let totalME = 0;
 
-            // Define columns
-            const columns = [
-                { header: 'Employee Code', key: 'EmployeeCode' },
-                { header: 'Employee Name', key: 'EmployeeName' },
-                { header: 'Gender', key: 'Gender' },
-                { header: 'Designation', key: 'Designation' }
-            ];
+            // Calculate daily totals from filtered data
+            filteredData.forEach(employee => {
+                if (!employee.isTotal && !employee.isSummary) {
+                    for (let day = 1; day <= daysInMonth; day++) {
+                        const status = employee[`day${day}`];
+                        if (status === 'P') {
+                            dailyPresent[day - 1]++;
+                            totalPresent++;
+                        } else if (status === 'ME') {
+                            dailyME[day - 1]++;
+                            totalME++;
+                        }
+                    }
+                }
+            });
 
-            
+            return {
+                dailyPresent,
+                dailyME,
+                totalPresent,
+                totalME
+            };
+        };
 
-            // Add day columns
-            for (let day = 1; day <= daysInMonth; day++) {
-                const dayName = getDayName(duration.getFullYear(), duration.getMonth(), day);
-                columns.push({ 
-                    header: `${dayName}\n${day}`, 
-                    key: `day${day}`,
-                    width: 10 // Adjusted width to accommodate day name
-                });
-            }
+        if (dataToExport.length === 0) {
+            message.warning("No attendance data available to export.");
+            return;
+        }
 
-            columns.push(
-                { header: 'Total Present', key: 'totalPresent' },
-                { header: 'Remarks', key: 'remarks' }
-            );
+        // Calculate new totals based on filtered data
+        const filteredTotals = calculateFilteredTotals(dataToExport);
 
-            // Set the columns
-            worksheet.columns = columns.map(col => ({
-                ...col,
-                width: col.header.length + 2
-            }));
+        const workbook = new ExcelJS.Workbook();
+        const worksheet = workbook.addWorksheet('Attendance Logs');
+        const daysInMonth = new Date(duration.getFullYear(), duration.getMonth() + 1, 0).getDate();
 
-            // Style the header row
-            worksheet.getRow(1).font = { bold: true };
-            worksheet.getRow(1).fill = {
+        // Define columns first
+        const columns = [
+            { header: 'Emp Code', key: 'EmployeeCode', width: 12 },
+            { header: 'Name', key: 'EmployeeName', width: 20 },
+            { header: 'Gender', key: 'Gender', width: 8 },
+            { header: 'Designation', key: 'Designation', width: 15 }
+        ];
+
+        // Add day columns
+        for (let day = 1; day <= daysInMonth; day++) {
+            const dayName = getDayName(duration.getFullYear(), duration.getMonth(), day);
+            columns.push({
+                header: dayName,
+                key: `day${day}`,
+                width: 7
+            });
+        }
+
+        columns.push(
+            { header: 'Total Present', key: 'totalPresent', width: 12 },
+            { header: 'Remarks', key: 'remarks', width: 15 }
+        );
+
+        // Set the columns
+        worksheet.columns = columns;
+
+        // Insert two rows at the beginning for titles
+        worksheet.spliceRows(1, 0, [], []); // Insert two empty rows at the top
+
+        // Add title headers in the correct position
+        worksheet.mergeCells('A1:G1');
+        const titleCell = worksheet.getCell('A1');
+        titleCell.value = locationName;
+        titleCell.alignment = { horizontal: 'center' };
+        titleCell.font = { bold: true, size: 12 };
+
+        worksheet.mergeCells('A2:G2');
+        const subtitleCell = worksheet.getCell('A2');
+        subtitleCell.value = `Attendance Report - ${getMonthYearString()}`;
+        subtitleCell.alignment = { horizontal: 'center' };
+        subtitleCell.font = { bold: true, size: 11 };
+
+        // Add the day numbers as a second header row (now in row 4)
+        const dayNumberRow = worksheet.getRow(4);
+        dayNumberRow.getCell(1).value = '';
+        dayNumberRow.getCell(2).value = '';
+        dayNumberRow.getCell(3).value = '';
+        dayNumberRow.getCell(4).value = '';
+        for (let day = 1; day <= daysInMonth; day++) {
+            dayNumberRow.getCell(day + 4).value = day.toString();
+        }
+        dayNumberRow.getCell(daysInMonth + 5).value = '';
+        dayNumberRow.getCell(daysInMonth + 6).value = '';
+        dayNumberRow.font = { bold: true };
+
+        // Style both header rows (now rows 3 and 4)
+        [3, 4].forEach(rowIndex => {
+            const headerRow = worksheet.getRow(rowIndex);
+            headerRow.font = { bold: true };
+            headerRow.fill = {
                 type: 'pattern',
                 pattern: 'solid',
                 fgColor: { argb: 'FFE0E0E0' }
             };
+            headerRow.alignment = { horizontal: 'center', vertical: 'middle' };
+        });
 
-            // Add data rows
-            dataToExport.forEach(employee => {
+        // Add data rows (excluding the total and summary rows)
+        let currentRow = 5;
+        dataToExport
+            .filter(row => !row.isTotal && !row.isSummary)
+            .forEach(employee => {
                 const rowData = {
                     EmployeeCode: employee.EmployeeCode || '',
                     EmployeeName: employee.EmployeeName || '',
                     Gender: employee.Gender || '',
                     Designation: employee.Designation || '',
                     ...Array.from({ length: daysInMonth }, (_, i) => ({
-                        [`day${i + 1}`]: employee[`day${i + 1}`] || 'N/A'
+                        [`day${i + 1}`]: employee[`day${i + 1}`] || ''
                     })).reduce((a, b) => Object.assign(a, b), {}),
                     totalPresent: calculateTotalPresent(employee),
                     remarks: remarks[employee.EmployeeCode] || ''
@@ -714,48 +1618,106 @@ export default function AttMonthly({ locationid, duration }) {
                         cell.fill = {
                             type: 'pattern',
                             pattern: 'solid',
-                            fgColor: { argb: 'FF90EE90' }
+                            fgColor: { argb: 'FFC8FFD0' }
                         };
                     } else if (cell.value === 'A') {
                         cell.fill = {
                             type: 'pattern',
                             pattern: 'solid',
-                            fgColor: { argb: 'FFFF9999' }
+                            fgColor: { argb: 'FFFFC8C8' }
                         };
-                    }
-                    else if (cell.value === 'ME') {  // Add styling for ME
+                    } else if (cell.value === 'ME') {
                         cell.fill = {
                             type: 'pattern',
                             pattern: 'solid',
-                            fgColor: { argb: 'FFFFE5CC' }  // Light orange
+                            fgColor: { argb: 'FFFFE5CC' }
                         };
                     }
                 }
+                currentRow++;
             });
 
-            // Generate buffer and download
-            const buffer = await workbook.xlsx.writeBuffer();
-            const blob = new Blob([buffer], { 
-                type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
+        // Add the total row
+        const totalRow = worksheet.addRow({
+            EmployeeCode: 'TOTAL',
+            EmployeeName: '',
+            Gender: '',
+            Designation: '',
+            ...Array.from({ length: daysInMonth }, (_, i) => ({
+                [`day${i + 1}`]: `${filteredTotals.dailyPresent[i]}`
+            })).reduce((a, b) => Object.assign(a, b), {}),
+            totalPresent: `Total : ${filteredTotals.totalPresent + filteredTotals.totalME}`,
+            remarks: ''
+        });
+        totalRow.font = { bold: true };
+
+        // Add empty row for spacing
+        worksheet.addRow([]);
+
+        // Add summary rows with proper formatting
+        const summaryRowsData = [
+            {
+                label: 'Attendance Required as per Contract',
+                value: totalCount
+            },
+            {
+                label: 'Total Present',
+                value: filteredTotals.totalPresent
+            },
+            {
+                label: 'Regularized Attendance',
+                value: filteredTotals.totalME
+            }
+        ];
+
+        summaryRowsData.forEach(summary => {
+            const summaryRow = worksheet.addRow({
+                EmployeeCode: summary.label,
+                EmployeeName: summary.value.toString(),
+                Gender: '',
+                Designation: ''
             });
             
-            const url = window.URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = `Attendance_${duration.getFullYear()}_${duration.getMonth() + 1}.xlsx`;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            window.URL.revokeObjectURL(url);
+            // Style summary rows
+            summaryRow.font = { bold: true };
+            summaryRow.getCell('EmployeeCode').alignment = { horizontal: 'left' };
+            summaryRow.getCell('EmployeeName').alignment = { horizontal: 'left' };
             
-            message.success('Excel exported successfully');
-        } catch (error) {
-            console.error("Error exporting to Excel:", error);
-            message.error("Failed to export Excel file");
-        } finally {
-            setExportLoading(false);
-        }
-    };
+            // Merge cells after EmployeeName to make it look cleaner
+            const startCell = summaryRow.getCell('Gender');
+            const endCell = summaryRow.getCell(columns[columns.length - 1].key);
+            worksheet.mergeCells(`${startCell._address}:${endCell._address}`);
+        });
+
+        // Add footer with total employees
+        const totalEmployees = dataToExport.filter(row => !row.isTotal && !row.isSummary).length;
+        worksheet.addRow([]); // Empty row for spacing
+        const footerRow = worksheet.addRow(['Total Employees:', totalEmployees]);
+        footerRow.font = { bold: true };
+
+        // Generate buffer and download
+        const buffer = await workbook.xlsx.writeBuffer();
+        const blob = new Blob([buffer], {
+            type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        });
+
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `${locationName}_Attendance_${duration.getFullYear()}_${(duration.getMonth() + 1).toString().padStart(2, '0')}.xlsx`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+
+        message.success('Excel exported successfully');
+    } catch (error) {
+        console.error("Error exporting to Excel:", error);
+        message.error("Failed to export Excel file");
+    } finally {
+        setExportLoading(false);
+    }
+};
 
     const { calendar, columns } = createCalendarData();
 
@@ -776,39 +1738,13 @@ export default function AttMonthly({ locationid, duration }) {
                             <Title level={5} style={{ margin: 0 }}>{locationName}</Title>
                             <Title level={5} style={{ margin: '2px 0' }}>Attendance Report - {getMonthYearString()}</Title>
                         </div>
-                        <div style={{ marginTop: '5px', marginBottom: '15px' }}>
-                            <Space>
-                                <Button 
-                                    type="primary" 
-                                    icon={<FileExcelOutlined />}
-                                    onClick={exportToExcel}
-                                    loading={exportLoading}
-                                >
-                                    Export to Excel
-                                </Button>
-                                <Button 
-                                    type="primary" 
-                                    icon={<FilePdfOutlined />}
-                                    onClick={exportToPdf}
-                                    loading={exportLoading}
-                                >
-                                    Export to PDF
-                                </Button>
-                                {Object.values(activeFilters).some(filter => filter && filter.length > 0) && (
-                                <Button 
-                                    icon={<ClearOutlined />}
-                                    onClick={clearAllFilters}
-                                >
-                                    Clear All Filters
-                                </Button>
-                            )}
-                            </Space>
-                            
-                        </div>
+                       
+                        {renderContractSummary()}
+                        {renderControls()}
                         <Table
                             dataSource={getCurrentData()}
                             columns={columns}
-                            pagination={false}e
+                            pagination={false}
                             rowKey="EmployeeCode"
                             bordered
                             scroll={{ x: 'max-content' }}
