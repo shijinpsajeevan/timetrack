@@ -54,6 +54,8 @@ const LoginForm = () => {
       localStorage.setItem('token', response.data.token);
       localStorage.setItem('userType', response.data.userType);
       localStorage.setItem('userName', response.data.firstName);
+      localStorage.setItem('lastName',response.data.lastName);
+      localStorage.setItem('designation',response.data.designation);
       setUserRole(response.data.userType);
 
       message.success('Login successful!');

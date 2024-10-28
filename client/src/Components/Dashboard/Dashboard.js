@@ -94,6 +94,7 @@ const Dashboard = () => {
 
   const { menus } = useUser(); // Access menus from context
   const userName = localStorage.getItem('userName');
+  const lastName = localStorage.getItem('lastName');
 
   //Default component for loading
   const [currentComponent, setCurrentComponent] = useState(<AttSummary />);
@@ -124,7 +125,7 @@ const Dashboard = () => {
 
   return (
     <Layout style={{ minHeight: '100vh' }}>
-      <Sider collapsible collapsed={collapsed} onCollapse={setCollapsed}>
+      <Sider collapsible collapsed={collapsed} onCollapse={setCollapsed} >
         <div style={{ padding: '16px', textAlign: 'center' }}>
         <img
       src={logo}
@@ -142,7 +143,7 @@ const Dashboard = () => {
       </Button> */}
         </Tooltip>
         
-        <Menu theme="light" mode="inline" items={menus} onClick={menuNavigate} inlineCollapsed={collapsed}>
+        <Menu theme="light" mode="inline" items={menus} onClick={menuNavigate} inlineCollapsed={collapsed} >
                 {/* {menus.map((item) => {
                     // Check if item has children
                     if (item.children) {
@@ -168,7 +169,7 @@ const Dashboard = () => {
       <Layout>
         <Header style={{ background: '#fff', padding: '0 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' , height:'32px'}}>
           <Breadcrumb style={{ margin: '8px 0' }}>
-          <Space direction='horizontal' ><UserOutlined/> {userName}</Space>
+          <Space direction='horizontal' ><UserOutlined/> {userName +' '+lastName}</Space>
           </Breadcrumb>
           {/* Logout Button */}
           <Button icon={<LogoutOutlined />} onClick={handleLogout} type="text">

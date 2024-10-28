@@ -19,7 +19,7 @@ export default function AttSummary() {
 
     const [locationList, setLocationList] = useState([]);
     const [form] = Form.useForm();
-    const [templateValue, setTemplateValue] = useState(1);
+    const [templateValue, setTemplateValue] = useState(3);
     const [locationId, setLocationId] = useState(null); // For Radio selection
     const [loadings, setLoadings] = useState([]);
     const [dateRange, setDateRange] = useState(null);
@@ -135,11 +135,11 @@ export default function AttSummary() {
                                             value: 1,
                                             icon: <CalendarTwoTone />,
                                         },
-                                        {
-                                            label: 'Weekly',
-                                            value: 2,
-                                            icon: <CalendarTwoTone />,
-                                        },
+                                        // {
+                                        //     label: 'Weekly',
+                                        //     value: 2,
+                                        //     icon: <CalendarTwoTone />,
+                                        // },
                                         {
                                             label: 'Monthly',
                                             value: 3,

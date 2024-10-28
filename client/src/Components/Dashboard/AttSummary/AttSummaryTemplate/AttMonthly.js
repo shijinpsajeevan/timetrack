@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Col, Card, Row, Empty, message, Button, Table, Space, Input, Typography, Select, Tag, Divider  } from 'antd';
+import { Col, Card, Row, Empty, message, Button, Table, Space, Input, Typography, Select, Tag, Divider, Modal  } from 'antd';
 import { EditOutlined, EllipsisOutlined, SettingOutlined, FileExcelOutlined, FilePdfOutlined, ClearOutlined } from '@ant-design/icons';
 import axios from 'axios';
 import ExcelJS from 'exceljs';
@@ -13,6 +13,9 @@ const { Title, Text } = Typography;
 const { Option } = Select;
 
 export default function AttMonthly({ locationid, duration }) {
+    const firstName = localStorage.getItem('userName');
+    const lastName = localStorage.getItem('lastName');
+    const designation = localStorage.getItem('designation');
     const [loading, setLoading] = useState(true);
     const [exportLoading, setExportLoading] = useState(false);
     const [logs, setLogs] = useState([]);
@@ -29,25 +32,7 @@ export default function AttMonthly({ locationid, duration }) {
 
     const abortController = new AbortController();
 
-    // useEffect(() => {
-    //     if (locationid && duration && contractType) {
-    //         console.log("Data found", locationid, duration);
-    //         fetchLogs(locationid, duration);
-    //         fetchLocationName(locationid);
-    //         fetchHolidays(duration);
-    //         calculateStaffCount();
-    //         updateFilteredCounts();
-    //     } else {
-    //         console.log("Props not passed down to AttMonthly due to null value or incorrect selection");
-    //         setLoading(false);
-    //     }
-
-    //     return () => {
-    //         abortController.abort();
-    //     };
-    // }, [locationid, duration, contractType]);
-
-    // First useEffect for data fetching
+    
     useEffect(() => {
         const fetchData = async () => {
             clearAllFilters()
@@ -87,11 +72,7 @@ export default function AttMonthly({ locationid, duration }) {
         }
     }, [logs, filteredData, contractType, loading]);
 
-    // useEffect(() => {
-    //     calculateStaffCount();
-    //     updateFilteredCounts();
-    // }, [filteredData, logs, contractType]);
-
+   
     const clearAllFilters = () => {
         setActiveFilters({});
         setFilteredData([]);
@@ -894,7 +875,7 @@ export default function AttMonthly({ locationid, duration }) {
                                 : status === 'WO' ? 'blue'
                                 : status === 'ME' ? 'orange'
                                 : status === 'PH' ? 'purple'
-                                : 'black'
+                                : 'black',
                         }}>
                             {(!isCurrentMonth || day <= currentDay) ? status || '' : ''}
                         </span>
@@ -1178,8 +1159,46 @@ export default function AttMonthly({ locationid, duration }) {
     };
 
     const exportToPdf = async () => {
+
+        let storedName = localStorage.getItem('reportSubmissionName');
+    
+    // Show modal with name input
+    const showNameModal = () => {
+        return new Promise((resolve) => {
+            Modal.confirm({
+                title: 'Enter School Representative Name',
+                width: 400,
+                icon: null,
+                content: (
+                    <Input 
+                        placeholder="Enter name" 
+                        defaultValue={storedName || ''}
+                        onChange={(e) => {
+                            localStorage.setItem('reportSubmissionName', e.target.value);
+                        }}
+                    />
+                ),
+                onOk() {
+                    const name = localStorage.getItem('reportSubmissionName');
+                    resolve({ name, cancelled: false });
+                },
+                onCancel() {
+                    localStorage.setItem('reportSubmissionName'," ");
+                    storedName='';
+                    resolve({ cancelled: true });
+                },
+            });
+        });
+    };
+
         try {
             setExportLoading(true);
+
+            // Show modal and get user input
+    const modalResult = await showNameModal();
+        
+    // Proceed with export even if modal was cancelled
+    const schoolRepName = modalResult.cancelled ? (storedName || '') : modalResult.name;
     
             // Use filtered data if available
             const dataToExport = getCurrentData();
@@ -1335,44 +1354,44 @@ export default function AttMonthly({ locationid, duration }) {
             ];
     
             // Create summary rows with proper formatting
-            const summaryRows = [
-                // [
-                //     'Attendance Required as per Contract',
-                //     totalCount.toString(),
-                //     '',
-                //     '',
-                //     ...Array(daysInMonth).fill(''),
-                //     '',
-                //     ''
-                // ],
-                // [
-                //     'Attendance as per the current month',
-                //     filteredTotals.totalPresent.toString(),
-                //     '',
-                //     '',
-                //     ...Array(daysInMonth).fill(''),
-                //     '',
-                //     ''
-                // ],
-                //  [
-                //     'Absenteeism',
-                //     Math.max(0, totalCount - filteredTotals.totalPresent).toString(),,
-                //     '',
-                //     '',
-                //     ...Array(daysInMonth).fill(''),
-                //     '',
-                //     ''
-                // ],
-                [
-                    'Regularized Attendance',
-                    filteredTotals.totalME.toString(),
-                    '',
-                    '',
-                    ...Array(daysInMonth).fill(''),
-                    '',
-                    ''
-                ]
-            ];
+            // const summaryRows = [
+            //     // [
+            //     //     'Attendance Required as per Contract',
+            //     //     totalCount.toString(),
+            //     //     '',
+            //     //     '',
+            //     //     ...Array(daysInMonth).fill(''),
+            //     //     '',
+            //     //     ''
+            //     // ],
+            //     // [
+            //     //     'Attendance as per the current month',
+            //     //     filteredTotals.totalPresent.toString(),
+            //     //     '',
+            //     //     '',
+            //     //     ...Array(daysInMonth).fill(''),
+            //     //     '',
+            //     //     ''
+            //     // ],
+            //     //  [
+            //     //     'Absenteeism',
+            //     //     Math.max(0, totalCount - filteredTotals.totalPresent).toString(),,
+            //     //     '',
+            //     //     '',
+            //     //     ...Array(daysInMonth).fill(''),
+            //     //     '',
+            //     //     ''
+            //     // ],
+            //     [
+            //         'Regularized Attendance',
+            //         filteredTotals.totalME.toString(),
+            //         '',
+            //         '',
+            //         ...Array(daysInMonth).fill(''),
+            //         '',
+            //         ''
+            //     ]
+            // ];
     
             // Combine all rows in the desired order
             const tableData = [...employeeData, totalRow, ...summaryRows];
@@ -1433,6 +1452,14 @@ export default function AttMonthly({ locationid, duration }) {
                                 data.cell.styles.fillColor = [255, 229, 204];
                                 data.cell.styles.textColor = [204, 102, 0];
                                 break;
+                            case 'WO': // Weekly Off case
+                                data.cell.styles.fillColor = [192, 192, 192]; // Grey background
+                                data.cell.styles.textColor = [255, 255, 255]; // White text
+                                break;
+                            case 'PH':
+                                    data.cell.styles.fillColor = [173, 216, 230]; // Light blue for leave color
+                                    data.cell.styles.textColor = [0, 0, 139]; // Dark blue text
+                                    break;
                         }
                     }
                     
@@ -1675,28 +1702,30 @@ export default function AttMonthly({ locationid, duration }) {
             });
         };
 
+        
         // Draw Company Representative table
         drawSignatureTable(table1X, signatureTablesY, 'Company Representative', {
-            'Name': '',
-            'Designation': 'OPERATIONS MANAGER',
+            'Name': `${firstName.toUpperCase()+ ' '+ lastName.toUpperCase()}`,
+            'Designation': `${designation}`,
             'Signature': '',
-            'Date': `${new Date().toLocaleDateString()}`
+            'Date': `${new Date().toLocaleDateString('en-GB')}`
         });
+
 
         // Draw Attendance Summary table
         drawSignatureTable(table2X, signatureTablesY, 'Attendance Summary', {
             'Attendance required as per the contract.': totalCount.toString(),
-            'Attendance as per the current month': filteredTotals.totalPresent.toString(),
+            'Attendance as per the current month': (filteredTotals.totalPresent+filteredTotals.totalME).toString(),
             'This month\'s shortfall': Math.max(0, totalCount - filteredTotals.totalPresent).toString(),
             'Consequent Absence': '0'
         });
 
         // Draw School Representative table
         drawSignatureTable(table3X, signatureTablesY, 'School Representative', {
-            'Name': '',
+            'Name': `${schoolRepName}`,
             'Designation': 'PRINCIPAL',
             'Signature': '',
-            'Date': ''
+            'Date': `${new Date().toLocaleDateString('en-GB')}`
         });
 
             ///end
@@ -1714,8 +1743,49 @@ export default function AttMonthly({ locationid, duration }) {
     };
 
 const exportToExcel = async () => {
+
+
+    let storedName = localStorage.getItem('reportSubmissionName');
+    
+    // Show modal with name input
+    const showNameModal = () => {
+        return new Promise((resolve) => {
+            Modal.confirm({
+                title: 'Enter School Representative Name',
+                width: 400,
+                icon: null,
+                content: (
+                    <Input 
+                        placeholder="Enter name" 
+                        defaultValue={storedName || ''}
+                        onChange={(e) => {
+                            localStorage.setItem('reportSubmissionName', e.target.value);
+                        }}
+                    />
+                ),
+                onOk() {
+                    const name = localStorage.getItem('reportSubmissionName');
+                    resolve({ name, cancelled: false });
+                },
+                onCancel() {
+                    localStorage.setItem('reportSubmissionName'," ");
+                    storedName='';
+                    resolve({ cancelled: true });
+                },
+            });
+        });
+    };
+
+
+    
     try {
         setExportLoading(true);
+
+        // Show modal and get user input
+        const modalResult = await showNameModal();
+        
+        // Proceed with export even if modal was cancelled
+        const schoolRepName = modalResult.cancelled ? (storedName || '') : modalResult.name;
 
         const workbook = new ExcelJS.Workbook();
         const worksheet = workbook.addWorksheet('Attendance Logs');
@@ -1969,6 +2039,14 @@ const exportToExcel = async () => {
                             fgColor: { argb: 'FFFFE5CC' }
                         };
                     }
+                    else if (cell.value === 'WO') {
+                        cell.fill = {
+                            type: 'pattern',
+                            pattern: 'solid',
+                            fgColor: { argb: 'FFD3D3D3' } 
+
+                        };
+                    }
                 }
                 currentRow++;
             });
@@ -1991,49 +2069,150 @@ const exportToExcel = async () => {
         worksheet.addRow([]);
 
         // Add summary rows with proper formatting
-        const summaryRowsData = [
-            {
-                label: 'Attendance Required as per Contract',
-                value: totalCount
-            },
-            {
-                label: 'Attendance as per the current month',
-                value: filteredTotals.totalPresent
-            },
-            {
-                label: 'Absenteeism',
-                value: Math.max(0, totalCount - filteredTotals.totalPresent).toString()
-            },
-            {
-                label: 'Regularized Attendance',
-                value: filteredTotals.totalME
-            }
-        ];
+        // const summaryRowsData = [
+        //     {
+        //         label: 'Attendance Required as per Contract',
+        //         value: totalCount
+        //     },
+        //     {
+        //         label: 'Attendance as per the current month',
+        //         value: filteredTotals.totalPresent+filteredTotals.totalME
+        //     },
+        //     {
+        //         label: 'Absenteeism',
+        //         value: Math.max(0, totalCount - filteredTotals.totalPresent).toString()
+        //     },
+        //     {
+        //         label: 'Regularized Attendance',
+        //         value: filteredTotals.totalME
+        //     }
+        // ];
 
-        summaryRowsData.forEach(summary => {
-            const summaryRow = worksheet.addRow({
-                EmployeeCode: summary.label,
-                EmployeeName: summary.value.toString(),
-                Gender: '',
-                Designation: ''
-            });
+        // summaryRowsData.forEach(summary => {
+        //     const summaryRow = worksheet.addRow({
+        //         EmployeeCode: summary.label,
+        //         EmployeeName: summary.value.toString(),
+        //         Gender: '',
+        //         Designation: ''
+        //     });
             
-            // Style summary rows
-            summaryRow.font = { bold: true };
-            summaryRow.getCell('EmployeeCode').alignment = { horizontal: 'left' };
-            summaryRow.getCell('EmployeeName').alignment = { horizontal: 'left' };
+        //     // Style summary rows
+        //     summaryRow.font = { bold: true };
+        //     summaryRow.getCell('EmployeeCode').alignment = { horizontal: 'left' };
+        //     summaryRow.getCell('EmployeeName').alignment = { horizontal: 'left' };
             
-            // Merge cells after EmployeeName to make it look cleaner
-            const startCell = summaryRow.getCell('Gender');
-            const endCell = summaryRow.getCell(columns[columns.length - 1].key);
-            worksheet.mergeCells(`${startCell._address}:${endCell._address}`);
-        });
+        //     // Merge cells after EmployeeName to make it look cleaner
+        //     const startCell = summaryRow.getCell('Gender');
+        //     const endCell = summaryRow.getCell(columns[columns.length - 1].key);
+        //     worksheet.mergeCells(`${startCell._address}:${endCell._address}`);
+        // });
 
         // Add footer with total employees
         // const totalEmployees = dataToExport.filter(row => !row.isTotal && !row.isSummary).length;
         // worksheet.addRow([]); // Empty row for spacing
         // const footerRow = worksheet.addRow(['Total Employees:', totalEmployees]);
         // footerRow.font = { bold: true };
+
+
+        // Function to create a signature table
+        const createSignatureTable = (startRow, startCol, title, data) => {
+            // Add title
+            const titleRow = worksheet.getRow(startRow);
+            const titleCell = titleRow.getCell(startCol);
+            titleCell.value = title;
+            titleCell.font = { bold: true };
+            titleCell.fill = {
+                type: 'pattern',
+                pattern: 'solid',
+                fgColor: { argb: 'FFFFFF' }
+            };
+            titleCell.border = {
+                top: { style: 'thin' },
+                left: { style: 'thin' },
+                right: { style: 'thin' },
+                bottom: { style: 'thin' }
+            };
+            worksheet.mergeCells(startRow, startCol, startRow, startCol + 1);
+
+            // Add data rows
+            let currentRow = startRow + 1;
+            Object.entries(data).forEach(([label, value]) => {
+                const row = worksheet.getRow(currentRow);
+                const labelCell = row.getCell(startCol);
+                const valueCell = row.getCell(startCol + 1);
+
+                labelCell.value = label;
+                valueCell.value = value;
+
+                // Style cells
+                [labelCell, valueCell].forEach(cell => {
+                    cell.border = {
+                        top: { style: 'thin' },
+                        left: { style: 'thin' },
+                        right: { style: 'thin' },
+                        bottom: { style: 'thin' }
+                    };
+                });
+
+                if (title === 'Attendance Summary') {
+                    valueCell.alignment = { horizontal: 'right' };
+                }
+
+                currentRow++;
+            });
+
+            // Return the height of the table (title + data rows)
+            return Object.keys(data).length + 1;
+        };
+
+        // Calculate the starting row for signature tables
+        const lastDataRow = worksheet.lastRow.number;
+        const signatureTableStartRow = lastDataRow + 3;
+
+        // Create Company Representative table
+        createSignatureTable(
+            signatureTableStartRow,
+            1, // Column A
+            'Company Representative',
+            {
+                'Name': `${firstName.toUpperCase()+ ''+lastName.toUpperCase()}`,
+                'Designation': `${designation}`,
+                'Signature': '',
+                'Date': `${new Date().toLocaleDateString('en-GB')}`
+            }
+        );
+
+        // Create Attendance Summary table
+        createSignatureTable(
+            signatureTableStartRow,
+            4, // Column D
+            'Attendance Summary',
+            {
+                'Attendance required as per the contract.': totalCount.toString(),
+                'Attendance as per the current month': (filteredTotals.totalPresent + filteredTotals.totalME).toString(),
+                "This month's shortfall": Math.max(0, totalCount - filteredTotals.totalPresent).toString(),
+                'Consequent Absence': '0'
+            }
+        );
+
+        // Create School Representative table
+        createSignatureTable(
+            signatureTableStartRow,
+            7, // Column G
+            'School Representative',
+            {
+                'Name': `${schoolRepName}`,
+                'Designation': 'PRINCIPAL',
+                'Signature': '',
+                'Date': `${new Date().toLocaleDateString('en-GB')}`
+            }
+        );
+
+        // Set column widths for signature tables
+        [1, 2, 4, 5, 7, 8].forEach(col => {
+            worksheet.getColumn(col).width = 15;
+        });
+
 
         // Generate buffer and download
         const buffer = await workbook.xlsx.writeBuffer();
@@ -2058,8 +2237,6 @@ const exportToExcel = async () => {
         setExportLoading(false);
     }
 };
-
-
 
 
     const { calendar, columns } = createCalendarData();
@@ -2094,7 +2271,7 @@ const exportToExcel = async () => {
                             onChange={handleTableChange}
                             footer={() => renderSummary(getCurrentData())}
                         />
-                        <div>{actions}</div>
+                        {/* <div>{actions}</div> */}
                     </Card>
                 ) : (
                     <Empty />

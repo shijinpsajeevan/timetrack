@@ -35,7 +35,7 @@ router.post("/login", validinfo, async (req, res) => {
     // 4. Generate JWT token
     const token = jwtGenerator(user.UserID, user.UserMail); // Ensure the jwtGenerator function handles this correctly
 
-    res.json({ token, isAdmin: user.IsAdmin , isSuperAdmin: user.IsSuperAdmin, userType: user.UserType, firstName: user.FirstName, userID:user.UserId});
+    res.json({ token, isAdmin: user.IsAdmin , isSuperAdmin: user.IsSuperAdmin, userType: user.UserType, firstName: user.FirstName, lastName:user.LastName, userID:user.UserId, designation:user.Designation});
 
   } catch (error) {
     console.error(error);
