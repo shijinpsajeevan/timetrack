@@ -6,6 +6,7 @@ import logo from '../../Images/azzurro.jpg'; // Add your logo image path here
 import { useUser } from './UserProvider';
 import AttSummary from './AttSummary/AttSummary';
 import Users from '../Users/Users';
+import Regularize from './Regularize/Regularize';
 import axios from 'axios';
 
 
@@ -110,8 +111,11 @@ const Dashboard = () => {
         case 'dashboard': // Change 'another' to the key of another component
           setCurrentComponent(<AttSummary />);
           break;
+        case 'regularize':
+          setCurrentComponent(<Regularize />);
+          break;
         default:
-          setCurrentComponent(<Users />); // Default to Users component
+          setCurrentComponent(<AttSummary />); // Default to Users component
       }
   }
 

@@ -2,6 +2,248 @@ const router = require('express').Router();
 const { sql, poolPromise } = require('../db');
 const authorization = require ('../middleware/authorization')
 
+
+router.get("/getEmployeeList",authorization,async(req,res)=>{
+    try{
+        const pool = await poolPromise; // Using the correct pool promise to handle connection
+        const result = await pool.request().query(`SELECT EmployeeCode, EmployeeName FROM employees WHERE status = 'Working' AND RecordStatus = 1`);
+        const employeelist = result.recordset;
+        res.json(employeelist);
+    }
+    catch (error) {
+        console.error("Error fetching Employee list:", error);
+        res.status(500).send("Server Error");
+    } finally{
+        sql.close();
+    }
+})
+
+
+// Attendance Regularization
+router.post("/regularize-attendance", authorization, async (req, res) => {
+    try {
+        const { locationId: DeviceId, 
+                employeeIds, 
+                startDate: LogDate, 
+                endDate: EndDate, 
+                remarks: Remarks, 
+                direction: Direction } = req.body;
+
+        // Current date for DownloadDate
+        const DownloadDate = new Date().toISOString();
+        const AttDirection = Direction;
+        const IsApproved = 1;
+        const AttenndanceMarkingType = 'ME';
+
+        // Validate required fields
+        if (!DeviceId || !employeeIds || !LogDate || !EndDate || !Remarks || !Direction) {
+            return res.status(400).json({ 
+                success: false, 
+                message: "All fields are required" 
+            });
+        }
+
+        const pool = await poolPromise;
+        const regularizedRecords = [];
+
+        // Convert dates to Date objects
+        let currentDate = new Date(LogDate);
+        const endDate = new Date(EndDate);
+
+        // Check if dates are in same month
+        if (currentDate.getMonth() !== endDate.getMonth() || 
+            currentDate.getFullYear() !== endDate.getFullYear()) {
+            return res.status(400).json({ 
+                success: false,
+                message: 'The date range should be within the same month.'
+            });
+        }
+
+        // Get month and year for table name
+        const month = String(currentDate.getMonth() + 1).toString(); // Pad with leading zero
+        const year = currentDate.getFullYear();
+        const tableName = `DeviceLogs_${month}_${year}`;
+
+        // Get device information
+        const deviceResult = await pool.request()
+            .input('DeviceId', sql.Int, DeviceId)
+            .query('SELECT DeviceFName FROM Devices WHERE DeviceId = @DeviceId');
+
+        if (deviceResult.recordset.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: "Device not found"
+            });
+        }
+
+        const deviceName = deviceResult.recordset[0].DeviceFName;
+
+        // Process each employee
+        for (const UserId of employeeIds) {
+            // Get employee name
+            const employeeResult = await pool.request()
+                .input('UserId', sql.VarChar(50), UserId)
+                .query('SELECT EmployeeName FROM Employees WHERE EmployeeCode = @UserId');
+
+            if (employeeResult.recordset.length === 0) {
+                continue; // Skip if employee not found
+            }
+
+            const employeeName = employeeResult.recordset[0].EmployeeName;
+            currentDate = new Date(LogDate); // Reset currentDate for each employee
+
+            // Insert records for each date
+            while (currentDate <= endDate) {
+                const currentLogDate = currentDate.toISOString().slice(0, 19).replace('T', ' ');
+
+                const result = await pool.request()
+                    .input('DownloadDate', sql.DateTime, DownloadDate)
+                    .input('DeviceId', sql.Int, DeviceId)
+                    .input('UserId', sql.VarChar(50), UserId)
+                    .input('Direction', sql.VarChar(10), Direction)
+                    .input('AttDirection', sql.VarChar(10), AttDirection)
+                    .input('LogDate', sql.DateTime, currentLogDate)
+                    .input('IsApproved', sql.Bit, IsApproved)
+                    .input('AttenndanceMarkingType', sql.VarChar(50), AttenndanceMarkingType)
+                    .input('Remarks', sql.VarChar(500), Remarks)
+                    .query(`
+                        INSERT INTO ${tableName} 
+                        (DownloadDate, DeviceId, UserId, Direction, AttDirection, 
+                         LogDate, IsApproved, AttenndanceMarkingType, Remarks)
+                        OUTPUT INSERTED.DeviceLogId
+                        VALUES 
+                        (@DownloadDate, @DeviceId, @UserId, @Direction, @AttDirection,
+                         @LogDate, @IsApproved, @AttenndanceMarkingType, @Remarks)
+                    `);
+
+                    console.log(result,"from s");
+                    
+
+                const logId = result.recordset[0].DeviceLogId;
+
+                // Add to response array
+                regularizedRecords.push({
+                    id: logId,
+                    employeeId: UserId,
+                    employeeName: employeeName,
+                    locationName: deviceName,
+                    Date: currentLogDate,
+                    direction: Direction,
+                    remarks: Remarks,
+                    tableName: tableName
+                });
+
+                // Move to next day
+                currentDate.setDate(currentDate.getDate() + 1);
+            }
+        }
+
+        res.status(200).json({
+            success: true,
+            message: `Logs inserted for the date range: ${LogDate} to ${EndDate}`,
+            records: regularizedRecords
+        });
+
+    } catch (error) {
+        console.error("Error in regularizing attendance:", error);
+        res.status(500).json({
+            success: false,
+            message: "Failed to regularize attendance",
+            error: error.message
+        });
+    }
+});
+//
+
+
+//Get regualrized attendnace
+    // Add this endpoint to your Express router (common.js)
+
+router.post("/regularize-attendance/report", authorization, async (req, res) => {
+    try {
+        const { locationId, tableName } = req.body;
+        
+        if (!locationId || !tableName) {
+            return res.status(400).json({
+                success: false,
+                message: "Location ID and table name are required"
+            });
+        }
+
+        const pool = await poolPromise;
+        
+        // Query to fetch regularized attendance records
+        const query = `
+            SELECT 
+                dl.DeviceLogId as id,
+                e.EmployeeCode as employeeId,
+                e.EmployeeName as employeeName,
+                d.DeviceFName as locationName,
+                dl.LogDate as Date,
+                dl.Direction as direction,
+                dl.Remarks as remarks,
+                '${tableName}' as tableName
+            FROM ${tableName} dl
+            JOIN Employees e ON dl.UserId = e.EmployeeCode
+            JOIN Devices d ON dl.DeviceId = d.DeviceId
+            WHERE dl.DeviceId = @locationId
+            AND dl.AttenndanceMarkingType = 'ME'
+            ORDER BY dl.LogDate DESC`;
+
+        const result = await pool.request()
+            .input('locationId', sql.Int, locationId)
+            .query(query);
+
+        res.status(200).json({
+            success: true,
+            records: result.recordset
+        });
+
+    } catch (error) {
+        console.error("Error fetching regularization report:", error);
+        res.status(500).json({
+            success: false,
+            message: "Failed to fetch report",
+            error: error.message
+        });
+    }
+});
+//
+
+//Delete the regularized record.
+router.delete("/regularize-attendance/:id", authorization, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { tableName } = req.query; // You'll need to pass the table name
+        
+        const pool = await poolPromise;
+        
+        const result = await pool.request()
+            .input('id', sql.Int, id)
+            .query(`DELETE FROM ${tableName} WHERE DeviceLogId = @id`);
+            
+        if (result.rowsAffected[0] === 0) {
+            return res.status(404).json({
+                success: false,
+                message: "Record not found"
+            });
+        }
+        
+        res.json({
+            success: true,
+            message: "Record deleted successfully"
+        });
+    } catch (error) {
+        console.error("Error deleting record:", error);
+        res.status(500).json({
+            success: false,
+            message: "Failed to delete record",
+            error: error.message
+        });
+    }
+});
+//
+
 router.post("/getDeviceList",authorization,async (req, res) => {
     try {
     console.log("Getting Request from client");
@@ -23,8 +265,6 @@ router.post("/getDeviceList",authorization,async (req, res) => {
     } catch (error) {
         console.error("Error fetching location list:", error);
         res.status(500).send("Server Error");
-    } finally{
-        sql.close();
     }
   });
 

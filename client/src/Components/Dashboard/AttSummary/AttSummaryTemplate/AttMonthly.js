@@ -1354,44 +1354,44 @@ export default function AttMonthly({ locationid, duration }) {
             ];
     
             // Create summary rows with proper formatting
-            // const summaryRows = [
-            //     // [
-            //     //     'Attendance Required as per Contract',
-            //     //     totalCount.toString(),
-            //     //     '',
-            //     //     '',
-            //     //     ...Array(daysInMonth).fill(''),
-            //     //     '',
-            //     //     ''
-            //     // ],
-            //     // [
-            //     //     'Attendance as per the current month',
-            //     //     filteredTotals.totalPresent.toString(),
-            //     //     '',
-            //     //     '',
-            //     //     ...Array(daysInMonth).fill(''),
-            //     //     '',
-            //     //     ''
-            //     // ],
-            //     //  [
-            //     //     'Absenteeism',
-            //     //     Math.max(0, totalCount - filteredTotals.totalPresent).toString(),,
-            //     //     '',
-            //     //     '',
-            //     //     ...Array(daysInMonth).fill(''),
-            //     //     '',
-            //     //     ''
-            //     // ],
-            //     [
-            //         'Regularized Attendance',
-            //         filteredTotals.totalME.toString(),
-            //         '',
-            //         '',
-            //         ...Array(daysInMonth).fill(''),
-            //         '',
-            //         ''
-            //     ]
-            // ];
+            const summaryRows = [
+                // [
+                //     'Attendance Required as per Contract',
+                //     totalCount.toString(),
+                //     '',
+                //     '',
+                //     ...Array(daysInMonth).fill(''),
+                //     '',
+                //     ''
+                // ],
+                // [
+                //     'Attendance as per the current month',
+                //     filteredTotals.totalPresent.toString(),
+                //     '',
+                //     '',
+                //     ...Array(daysInMonth).fill(''),
+                //     '',
+                //     ''
+                // ],
+                //  [
+                //     'Absenteeism',
+                //     Math.max(0, totalCount - filteredTotals.totalPresent).toString(),,
+                //     '',
+                //     '',
+                //     ...Array(daysInMonth).fill(''),
+                //     '',
+                //     ''
+                // ],
+                [
+                    'Regularized Attendance',
+                    filteredTotals.totalME.toString(),
+                    '',
+                    '',
+                    ...Array(daysInMonth).fill(''),
+                    '',
+                    ''
+                ]
+            ];
     
             // Combine all rows in the desired order
             const tableData = [...employeeData, totalRow, ...summaryRows];
@@ -1741,6 +1741,362 @@ export default function AttMonthly({ locationid, duration }) {
             setExportLoading(false);
         }
     };
+
+// const exportToExcel = async () => {
+//     try {
+//         setExportLoading(true);
+
+//         const workbook = new ExcelJS.Workbook();
+//         const worksheet = workbook.addWorksheet('Attendance Logs');
+
+        
+//         // Helper function to convert URL to base64
+//         const urlToBase64 = async (url) => {
+//             try {
+//                 const response = await fetch(url);
+//                 const blob = await response.blob();
+//                 return new Promise((resolve, reject) => {
+//                     const reader = new FileReader();
+//                     reader.onload = () => resolve(reader.result.split(',')[1]);
+//                     reader.onerror = reject;
+//                     reader.readAsDataURL(blob);
+//                 });
+//             } catch (error) {
+//                 console.error("Error converting URL to base64:", error);
+//                 throw error;
+//             }
+//         };
+
+//         // Helper function to handle different types of image inputs
+//         const imageToBase64 = async (image) => {
+//             if (!image) return null;
+
+//             try {
+//                 // If image is already a base64 string
+//                 if (typeof image === 'string') {
+//                     // Check if it's a URL
+//                     if (image.startsWith('http') || image.startsWith('data:image')) {
+//                         if (image.startsWith('data:image')) {
+//                             // Already a base64 string, extract the actual base64 part
+//                             return image.split(',')[1];
+//                         } else {
+//                             // It's a URL, convert to base64
+//                             return await urlToBase64(image);
+//                         }
+//                     }
+//                     // If it's already a raw base64 string
+//                     return image;
+//                 }
+//                 // If image is a File or Blob
+//                 else if (image instanceof Blob || image instanceof File) {
+//                     return new Promise((resolve, reject) => {
+//                         const reader = new FileReader();
+//                         reader.onload = () => resolve(reader.result.split(',')[1]);
+//                         reader.onerror = reject;
+//                         reader.readAsDataURL(image);
+//                     });
+//                 }
+//                 throw new Error('Unsupported image format');
+//             } catch (error) {
+//                 console.error("Error processing image:", error);
+//                 return null;
+//             }
+//         };
+
+
+//         // Get base64 for both logos
+//         const [logo1Base64, logo2Base64] = await Promise.all([
+//             imageToBase64(logo1str),
+//             imageToBase64(logo2str)
+//         ]);
+
+//         // Calculate dimensions once
+//         const daysInMonth1 = new Date(duration.getFullYear(), duration.getMonth() + 1, 0).getDate();
+//         const totalColumns = 4 + daysInMonth1 + 2; // Basic columns + days + total present + remarks
+
+//         // Add logos if they were successfully converted
+//         if (logo1Base64) {
+//             const leftLogoId = workbook.addImage({
+//                 base64: logo1Base64,
+//                 extension: 'png',
+//             });
+
+//             worksheet.addImage(leftLogoId, {
+//                 tl: { col: 0, row: 0 },
+//                 ext: { width: 100, height: 50 },
+//                 editAs: 'oneCell'
+//             });
+//         }
+
+//         if (logo2Base64) {
+//             const rightLogoId = workbook.addImage({
+//                 base64: logo2Base64,
+//                 extension: 'png',
+//             });
+
+//             worksheet.addImage(rightLogoId, {
+//                 tl: { col: totalColumns - 3, row: 0 },
+//                 ext: { width: 100, height: 50 },
+//                 editAs: 'oneCell'
+//             });
+//         }
+
+//         // Add row height for logo
+//         worksheet.getRow(1).height = 50;
+
+//         const dataToExport = getCurrentData();
+
+//         // Calculate totals based on the filtered data
+//         const calculateFilteredTotals = (filteredData) => {
+//             const daysInMonth = new Date(duration.getFullYear(), duration.getMonth() + 1, 0).getDate();
+//             const dailyPresent = Array(daysInMonth).fill(0);
+//             const dailyME = Array(daysInMonth).fill(0);
+//             let totalPresent = 0;
+//             let totalME = 0;
+
+//             // Calculate daily totals from filtered data
+//             filteredData.forEach(employee => {
+//                 if (!employee.isTotal && !employee.isSummary) {
+//                     for (let day = 1; day <= daysInMonth; day++) {
+//                         const status = employee[`day${day}`];
+//                         if (status === 'P') {
+//                             dailyPresent[day - 1]++;
+//                             totalPresent++;
+//                         } else if (status === 'ME') {
+//                             dailyME[day - 1]++;
+//                             totalME++;
+//                         }
+//                     }
+//                 }
+//             });
+
+//             return {
+//                 dailyPresent,
+//                 dailyME,
+//                 totalPresent,
+//                 totalME
+//             };
+//         };
+
+//         if (dataToExport.length === 0) {
+//             message.warning("No attendance data available to export.");
+//             return;
+//         }
+
+//         // Calculate new totals based on filtered data
+//         const filteredTotals = calculateFilteredTotals(dataToExport);
+
+//         // const workbook = new ExcelJS.Workbook();
+//         // const worksheet = workbook.addWorksheet('Attendance Logs');
+//         const daysInMonth = new Date(duration.getFullYear(), duration.getMonth() + 1, 0).getDate();
+
+//         // Define columns first
+//         const columns = [
+//             { header: 'Emp Code', key: 'EmployeeCode', width: 12 },
+//             { header: 'Name', key: 'EmployeeName', width: 20 },
+//             { header: 'Gender', key: 'Gender', width: 8 },
+//             { header: 'Designation', key: 'Designation', width: 15 }
+//         ];
+
+//         // Add day columns
+//         for (let day = 1; day <= daysInMonth; day++) {
+//             const dayName = getDayName(duration.getFullYear(), duration.getMonth(), day);
+//             columns.push({
+//                 header: dayName,
+//                 key: `day${day}`,
+//                 width: 7
+//             });
+//         }
+
+//         columns.push(
+//             { header: 'Total Present', key: 'totalPresent', width: 12 },
+//             { header: 'Remarks', key: 'remarks', width: 15 }
+//         );
+
+//         // Set the columns
+//         worksheet.columns = columns;
+
+//         // Insert two rows at the beginning for titles
+//         worksheet.spliceRows(1, 0, [], []); // Insert two empty rows at the top
+
+//         // Add title headers in the correct position
+//         worksheet.mergeCells('A1:G1');
+//         const titleCell = worksheet.getCell('A1');
+//         titleCell.value = locationName;
+//         titleCell.alignment = { horizontal: 'center' };
+//         titleCell.font = { bold: true, size: 12 };
+
+//         worksheet.mergeCells('A2:G2');
+//         const subtitleCell = worksheet.getCell('A2');
+//         subtitleCell.value = `Attendance Report - ${getMonthYearString()}`;
+//         subtitleCell.alignment = { horizontal: 'center' };
+//         subtitleCell.font = { bold: true, size: 11 };
+
+//         // Add the day numbers as a second header row (now in row 4)
+//         const dayNumberRow = worksheet.getRow(4);
+//         dayNumberRow.getCell(1).value = '';
+//         dayNumberRow.getCell(2).value = '';
+//         dayNumberRow.getCell(3).value = '';
+//         dayNumberRow.getCell(4).value = '';
+//         for (let day = 1; day <= daysInMonth; day++) {
+//             dayNumberRow.getCell(day + 4).value = day.toString();
+//         }
+//         dayNumberRow.getCell(daysInMonth + 5).value = '';
+//         dayNumberRow.getCell(daysInMonth + 6).value = '';
+//         dayNumberRow.font = { bold: true };
+
+//         // Style both header rows (now rows 3 and 4)
+//         [3, 4].forEach(rowIndex => {
+//             const headerRow = worksheet.getRow(rowIndex);
+//             headerRow.font = { bold: true };
+//             headerRow.fill = {
+//                 type: 'pattern',
+//                 pattern: 'solid',
+//                 fgColor: { argb: 'FFE0E0E0' }
+//             };
+//             headerRow.alignment = { horizontal: 'center', vertical: 'middle' };
+//         });
+
+//         // Add data rows (excluding the total and summary rows)
+//         let currentRow = 5;
+//         dataToExport
+//             .filter(row => !row.isTotal && !row.isSummary)
+//             .forEach(employee => {
+//                 const rowData = {
+//                     EmployeeCode: employee.EmployeeCode || '',
+//                     EmployeeName: employee.EmployeeName || '',
+//                     Gender: employee.Gender || '',
+//                     Designation: employee.Designation || '',
+//                     ...Array.from({ length: daysInMonth }, (_, i) => ({
+//                         [`day${i + 1}`]: employee[`day${i + 1}`] || ''
+//                     })).reduce((a, b) => Object.assign(a, b), {}),
+//                     totalPresent: calculateTotalPresent(employee),
+//                     remarks: remarks[employee.EmployeeCode] || ''
+//                 };
+
+//                 const row = worksheet.addRow(rowData);
+
+//                 // Style attendance cells
+//                 for (let day = 1; day <= daysInMonth; day++) {
+//                     const cell = row.getCell(`day${day}`);
+//                     if (cell.value === 'P') {
+//                         cell.fill = {
+//                             type: 'pattern',
+//                             pattern: 'solid',
+//                             fgColor: { argb: 'FFC8FFD0' }
+//                         };
+//                     } else if (cell.value === 'A') {
+//                         cell.fill = {
+//                             type: 'pattern',
+//                             pattern: 'solid',
+//                             fgColor: { argb: 'FFFFC8C8' }
+//                         };
+//                     } else if (cell.value === 'ME') {
+//                         cell.fill = {
+//                             type: 'pattern',
+//                             pattern: 'solid',
+//                             fgColor: { argb: 'FFFFE5CC' }
+//                         };
+//                     }
+//                     else if (cell.value === 'WO') {
+//                         cell.fill = {
+//                             type: 'pattern',
+//                             pattern: 'solid',
+//                             fgColor: { argb: 'FFD3D3D3' } 
+
+//                         };
+//                     }
+//                 }
+//                 currentRow++;
+//             });
+
+//         // Add the total row
+//         const totalRow = worksheet.addRow({
+//             EmployeeCode: 'TOTAL',
+//             EmployeeName: '',
+//             Gender: '',
+//             Designation: '',
+//             ...Array.from({ length: daysInMonth }, (_, i) => ({
+//                 [`day${i + 1}`]: `${filteredTotals.dailyPresent[i]}`
+//             })).reduce((a, b) => Object.assign(a, b), {}),
+//             totalPresent: `Total : ${filteredTotals.totalPresent + filteredTotals.totalME}`,
+//             remarks: ''
+//         });
+//         totalRow.font = { bold: true };
+
+//         // Add empty row for spacing
+//         worksheet.addRow([]);
+
+//         // Add summary rows with proper formatting
+//         const summaryRowsData = [
+//             {
+//                 label: 'Attendance Required as per Contract',
+//                 value: totalCount
+//             },
+//             {
+//                 label: 'Attendance as per the current month',
+//                 value: filteredTotals.totalPresent+filteredTotals.totalME
+//             },
+//             {
+//                 label: 'Absenteeism',
+//                 value: Math.max(0, totalCount - filteredTotals.totalPresent).toString()
+//             },
+//             {
+//                 label: 'Regularized Attendance',
+//                 value: filteredTotals.totalME
+//             }
+//         ];
+
+//         summaryRowsData.forEach(summary => {
+//             const summaryRow = worksheet.addRow({
+//                 EmployeeCode: summary.label,
+//                 EmployeeName: summary.value.toString(),
+//                 Gender: '',
+//                 Designation: ''
+//             });
+            
+//             // Style summary rows
+//             summaryRow.font = { bold: true };
+//             summaryRow.getCell('EmployeeCode').alignment = { horizontal: 'left' };
+//             summaryRow.getCell('EmployeeName').alignment = { horizontal: 'left' };
+            
+//             // Merge cells after EmployeeName to make it look cleaner
+//             const startCell = summaryRow.getCell('Gender');
+//             const endCell = summaryRow.getCell(columns[columns.length - 1].key);
+//             worksheet.mergeCells(`${startCell._address}:${endCell._address}`);
+//         });
+
+//         // Add footer with total employees
+//         // const totalEmployees = dataToExport.filter(row => !row.isTotal && !row.isSummary).length;
+//         // worksheet.addRow([]); // Empty row for spacing
+//         // const footerRow = worksheet.addRow(['Total Employees:', totalEmployees]);
+//         // footerRow.font = { bold: true };
+
+//         // Generate buffer and download
+//         const buffer = await workbook.xlsx.writeBuffer();
+//         const blob = new Blob([buffer], {
+//             type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+//         });
+
+//         const url = window.URL.createObjectURL(blob);
+//         const link = document.createElement('a');
+//         link.href = url;
+//         link.download = `${locationName}_Attendance_${duration.getFullYear()}_${(duration.getMonth() + 1).toString().padStart(2, '0')}.xlsx`;
+//         document.body.appendChild(link);
+//         link.click();
+//         document.body.removeChild(link);
+//         window.URL.revokeObjectURL(url);
+
+//         message.success('Excel exported successfully');
+//     } catch (error) {
+//         console.error("Error exporting to Excel:", error);
+//         message.error("Failed to export Excel file");
+//     } finally {
+//         setExportLoading(false);
+//     }
+// };
+
+
 
 const exportToExcel = async () => {
 
