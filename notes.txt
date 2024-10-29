@@ -8,15 +8,45 @@ npm install antd --save
 User Creation - UserLogin table
 
 CREATE TABLE UserLogin (
-    UserID INT IDENTITY(1,1) PRIMARY KEY,  -- UserID as primary key with auto-increment
-    FirstName NVARCHAR(50) NOT NULL,       -- User's first name
-    LastName NVARCHAR(50) NOT NULL,        -- User's last name
-    Company NVARCHAR(100),                 -- Company name
-    UserType NVARCHAR(50),                 -- Type of user (e.g., admin, standard user, etc.)
-    IsAdmin BIT DEFAULT 0,                 -- Boolean value to check if the user is an admin (0 = false, 1 = true)
-    UserName NVARCHAR(50) NOT NULL UNIQUE, -- Unique username
-    UserMail NVARCHAR(100) NOT NULL UNIQUE,-- Unique email address
-    UserPassword NVARCHAR(255) NOT NULL,   -- User password (store as a hashed value)
-    ApprovedUser BIT DEFAULT 0,            -- Boolean value to check if the user is approved (0 = false, 1 = true)
-    Active BIT DEFAULT 1                   -- Boolean value to check if the user is active (0 = inactive, 1 = active)
+    UserID INT IDENTITY(1,1) PRIMARY KEY,   -- UserID as primary key with auto-increment
+    FirstName NVARCHAR(100) NOT NULL,       -- User's first name
+    LastName NVARCHAR(100) NOT NULL,        -- User's last name
+    Company NVARCHAR(150),                  -- Company name
+    UserType NVARCHAR(50),                  -- Type of user (e.g., admin, standard user, etc.)
+    IsAdmin BIT DEFAULT 0, 
+	IsSuperAdmin BIT DEFAULT 0,                 -- Boolean value to check if the user is an admin (0 = false, 1 = true)
+    UserName NVARCHAR(50) NOT NULL UNIQUE,  -- Unique username
+    UserMail NVARCHAR(100) NOT NULL UNIQUE, -- Unique email address
+    UserPassword NVARCHAR(255) NOT NULL,    -- User password (store as a hashed value)
+    ApprovedUser BIT DEFAULT 0,             -- Boolean value to check if the user is approved (0 = false, 1 = true)
+    Active BIT DEFAULT 1,                   -- Boolean value to check if the user is active (0 = inactive, 1 = active)
+    Permissions NVARCHAR(MAX)
 );
+
+
+
+
+
+
+Attendance Required count table
+
+CREATE TABLE LocationContracts (
+    ContractID INT PRIMARY KEY IDENTITY(1,1),
+    LocationID INT NOT NULL,
+    Year INT NOT NULL,
+    Month INT NOT NULL,
+    ContractType VARCHAR(10) NOT NULL,  -- 'Daily' or 'Monthly'
+    StaffCount INT NOT NULL,
+    CreatedDate DATETIME DEFAULT GETDATE(),
+    -- Ensure only one contract per location per month per year
+    CONSTRAINT UQ_LocationContract UNIQUE (LocationID, Year, Month),
+    -- Ensure valid contract type
+    CONSTRAINT CHK_ContractType CHECK (ContractType IN ('Daily', 'Monthly')),
+    -- Ensure valid month
+    CONSTRAINT CHK_Month CHECK (Month BETWEEN 1 AND 12),
+    -- Ensure positive values
+    CONSTRAINT CHK_StaffCount CHECK (StaffCount > 0),
+);
+
+
+

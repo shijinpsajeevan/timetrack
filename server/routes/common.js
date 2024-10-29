@@ -327,13 +327,130 @@ router.post("/getDeviceList",authorization,async (req, res) => {
 
 // Get Contract Count / staff count
 
-router.get("/getContractCount",authorization,async(req,res)=>{
-    try {
-        console.log("GetContract count");
-    } catch (error) {
+// router.get("/getContractCount", authorization, async (req, res) => {
+//     try {
+//         const { locationId, date, contractType } = req.query;
+
+//         if (!locationId || !date) {
+//             return res.status(400).json({
+//                 success: false,
+//                 message: "LocationId and date are required"
+//             });
+//         }
+
+//         const pool = await poolPromise;
+
+//         // Parse the date to extract year and month
+//         const parsedDate = new Date(date);
+//         const year = parsedDate.getFullYear();
+//         const month = parsedDate.getMonth() + 1; // JavaScript months are 0-based
         
+
+//         // Base query
+//         let query = `
+//             SELECT StaffCount as contractCount
+//             FROM LocationContracts
+//             WHERE LocationID = @locationId
+//             AND Year = @year
+//             AND Month = @month
+//         `;
+
+//         const request = pool.request()
+//             .input('locationId', sql.Int, locationId)
+//             .input('year', sql.Int, year)
+//             .input('month', sql.Int, month);
+
+//         // Add contractType filter if provided
+//         if (contractType) {
+//             query += ` AND ContractType = @contractType`;
+//             request.input('contractType', sql.VarChar(10), contractType);
+//         }
+
+//         const result = await request.query(query);
+
+//         console.log(query,"query");
+        
+//         console.log("Log result from count",result);
+        
+
+//         res.status(200).json({
+//             success: true,
+//             count: result.recordset[0].contractCount
+//         });
+
+//     } catch (error) {
+//         console.error("Error fetching contract count:", error);
+//         res.status(500).json({
+//             success: false,
+//             message: "Failed to fetch contract count",
+//             error: error.message
+//         });
+//     }
+// });
+
+
+router.get("/getContractCount", authorization, async (req, res) => {
+    try {
+        const { locationId, date, contractType } = req.query;
+        
+        if (!locationId || !date) {
+            return res.status(400).json({ 
+                success: false, 
+                message: "LocationId and date are required" 
+            });
+        }
+
+        const pool = await poolPromise;
+        const parsedDate = new Date(date);
+        const year = parsedDate.getFullYear();
+        const month = parsedDate.getMonth() + 1;
+
+        let query = `
+            SELECT StaffCount as contractCount 
+            FROM LocationContracts 
+            WHERE LocationID = @locationId 
+            AND Year = @year 
+            AND Month = @month
+        `;
+
+        const request = pool.request()
+            .input('locationId', sql.Int, locationId)
+            .input('year', sql.Int, year)
+            .input('month', sql.Int, month);
+
+        if (contractType) {
+            query += ` AND ContractType = @contractType`;
+            request.input('contractType', sql.VarChar(10), contractType);
+        }
+
+        const result = await request.query(query);
+        console.log("Query:", query);
+        console.log("Result:", result);
+
+        // Check if any records were found
+        if (result.recordset.length === 0) {
+            return res.status(200).json({
+                success: true,
+                count: 0,  // Return 0 if no contract found
+                message: "No contract found for the specified criteria"
+            });
+        }
+
+        // If records were found, return the count
+        res.status(200).json({
+            success: true,
+            count: result.recordset[0].contractCount
+        });
+
+    } catch (error) {
+        console.error("Error fetching contract count:", error);
+        res.status(500).json({
+            success: false,
+            message: "Failed to fetch contract count",
+            error: error.message
+        });
     }
-})
+});
 
 
 //Get Holiday List
@@ -471,6 +588,599 @@ WHERE
     } catch (error) {
         console.error(error);
         res.status(500).send("Server Error");
+    }
+});
+
+
+
+// Add this to your existing router file
+
+// Get location contracts
+router.get("/getLocationContracts", authorization, async (req, res) => {
+    try {
+        const { 
+            locationId, 
+            startYear, 
+            startMonth, 
+            endYear, 
+            endMonth, 
+            contractType 
+        } = req.query;
+        
+        if (!locationId || !startYear || !startMonth || !endYear || !endMonth) {
+            return res.status(400).json({
+                success: false,
+                message: "LocationId and date range are required"
+            });
+        }
+
+        const pool = await poolPromise;
+        
+        const query = `
+            SELECT 
+                lc.ContractID as contractId,
+                lc.LocationID as locationId,
+                lc.Year as year,
+                lc.Month as month,
+                lc.ContractType as contractType,
+                lc.StaffCount as staffCount,
+                d.DeviceFName as locationName
+            FROM LocationContracts lc
+            JOIN Devices d ON lc.LocationID = d.DeviceId
+            WHERE lc.LocationID = @locationId
+            AND (
+                (lc.Year = @startYear AND lc.Month >= @startMonth)
+                OR (lc.Year = @endYear AND lc.Month <= @endMonth)
+                OR (lc.Year > @startYear AND lc.Year < @endYear)
+            )
+            ORDER BY lc.Year DESC, lc.Month DESC`;
+
+        const request = pool.request()
+            .input('locationId', sql.Int, locationId)
+            .input('startYear', sql.Int, parseInt(startYear))
+            .input('startMonth', sql.Int, parseInt(startMonth))
+            .input('endYear', sql.Int, parseInt(endYear))
+            .input('endMonth', sql.Int, parseInt(endMonth));
+
+        if (contractType) {
+            request.input('contractType', sql.VarChar(10), contractType);
+        }
+
+        const result = await request.query(query);
+
+        res.status(200).json({
+            success: true,
+            contracts: result.recordset
+        });
+
+    } catch (error) {
+        console.error("Error fetching location contracts:", error);
+        res.status(500).json({
+            success: false,
+            message: "Failed to fetch contracts",
+            error: error.message
+        });
+    }
+});
+
+//
+
+// Get location contracts
+router.get("/locationContracts", authorization, async (req, res) => {
+    try {
+        const { 
+            locationId, 
+            startYear, 
+            startMonth, 
+            endYear, 
+            endMonth, 
+            contractType 
+        } = req.query;
+        
+        if (!locationId || !startYear || !startMonth || !endYear || !endMonth) {
+            return res.status(400).json({
+                success: false,
+                message: "LocationId and date range are required"
+            });
+        }
+
+        const pool = await poolPromise;
+        
+        const query = `
+            SELECT 
+                lc.ContractID as contractId,
+                lc.LocationID as locationId,
+                lc.Year as year,
+                lc.Month as month,
+                lc.ContractType as contractType,
+                lc.StaffCount as staffCount,
+                d.DeviceFName as locationName
+            FROM LocationContracts lc
+            JOIN Devices d ON lc.LocationID = d.DeviceId
+            WHERE lc.LocationID = @locationId
+            AND (
+                (lc.Year = @startYear AND lc.Month >= @startMonth)
+                OR (lc.Year = @endYear AND lc.Month <= @endMonth)
+                OR (lc.Year > @startYear AND lc.Year < @endYear)
+            )
+            ${contractType ? "AND lc.ContractType = @contractType" : ""}
+            ORDER BY lc.Year DESC, lc.Month DESC`;
+
+        const request = pool.request()
+            .input('locationId', sql.Int, locationId)
+            .input('startYear', sql.Int, parseInt(startYear))
+            .input('startMonth', sql.Int, parseInt(startMonth))
+            .input('endYear', sql.Int, parseInt(endYear))
+            .input('endMonth', sql.Int, parseInt(endMonth));
+
+        if (contractType) {
+            request.input('contractType', sql.VarChar(10), contractType);
+        }
+
+        const result = await request.query(query);
+
+        res.status(200).json({
+            success: true,
+            contracts: result.recordset
+        });
+
+    } catch (error) {
+        console.error("Error fetching location contracts:", error);
+        res.status(500).json({
+            success: false,
+            message: "Failed to fetch contracts",
+            error: error.message
+        });
+    }
+});
+
+// Create new contracts
+// router.post("/locationContracts", authorization, async (req, res) => {
+//     const pool = await poolPromise;
+//     const transaction = pool.transaction();
+
+//     try {
+//         const {
+//             locationId,
+//             startYear,
+//             startMonth,
+//             endYear,
+//             endMonth,
+//             staffCount,
+//             contractType,
+//             overwrite = false
+//         } = req.body;
+
+//         // Input validation
+//         if (!locationId || !startYear || !startMonth || !endYear || !endMonth || !staffCount || !contractType) {
+//             return res.status(400).json({
+//                 success: false,
+//                 message: "All fields are required"
+//             });
+//         }
+
+//         await transaction.begin();
+
+//         // If overwrite is true, delete existing contracts in the date range
+//         if (overwrite) {
+//             const deleteQuery = `
+//                 DELETE FROM LocationContracts 
+//                 WHERE LocationID = @locationId
+//                 AND ContractType = @contractType
+//                 AND (
+//                     (Year = @startYear AND Month >= @startMonth)
+//                     OR (Year = @endYear AND Month <= @endMonth)
+//                     OR (Year > @startYear AND Year < @endYear)
+//                 )`;
+
+//             await transaction.request()
+//                 .input('locationId', sql.Int, locationId)
+//                 .input('startYear', sql.Int, startYear)
+//                 .input('startMonth', sql.Int, startMonth)
+//                 .input('endYear', sql.Int, endYear)
+//                 .input('endMonth', sql.Int, endMonth)
+//                 .input('contractType', sql.VarChar(10), contractType)
+//                 .query(deleteQuery);
+//         }
+
+//         // Insert new contracts
+//         const insertedContracts = [];
+//         let currentYear = startYear;
+//         let currentMonth = startMonth;
+
+//         while (currentYear < endYear || (currentYear === endYear && currentMonth <= endMonth)) {
+//             const insertQuery = `
+//                 INSERT INTO LocationContracts (
+//                     LocationID, Year, Month, StaffCount, ContractType
+//                 )
+//                 OUTPUT INSERTED.ContractID
+//                 VALUES (
+//                     @locationId, @year, @month, @staffCount, @contractType
+//                 )`;
+
+//             const result = await transaction.request()
+//                 .input('locationId', sql.Int, locationId)
+//                 .input('year', sql.Int, currentYear)
+//                 .input('month', sql.Int, currentMonth)
+//                 .input('staffCount', sql.Int, staffCount)
+//                 .input('contractType', sql.VarChar(10), contractType)
+//                 .query(insertQuery);
+
+//             insertedContracts.push({
+//                 contractId: result.recordset[0].ContractID,
+//                 year: currentYear,
+//                 month: currentMonth
+//             });
+
+//             // Move to next month
+//             currentMonth++;
+//             if (currentMonth > 12) {
+//                 currentMonth = 1;
+//                 currentYear++;
+//             }
+//         }
+
+//         await transaction.commit();
+
+//         res.status(200).json({
+//             success: true,
+//             message: "Contracts created successfully",
+//             contracts: insertedContracts
+//         });
+
+//     } catch (error) {
+//         await transaction.rollback();
+//         console.error("Error creating contracts:", error);
+//         res.status(500).json({
+//             success: false,
+//             message: "Failed to create contracts",
+//             error: error.message
+//         });
+//     }
+// });
+
+router.post("/locationContracts", authorization, async (req, res) => {
+    const pool = await poolPromise;
+    const transaction = new sql.Transaction(pool);
+
+    try {
+        const {
+            locationId,
+            startYear,
+            startMonth,
+            endYear,
+            endMonth,
+            staffCount,
+            contractType,
+            overwrite = false
+        } = req.body;
+
+        // Input validation
+        if (!locationId || !startYear || !startMonth || !endYear || !endMonth || !staffCount || !contractType) {
+            return res.status(400).json({
+                success: false,
+                message: "All fields are required"
+            });
+        }
+
+        // Validate date range
+        if (startYear > endYear || (startYear === endYear && startMonth > endMonth)) {
+            return res.status(400).json({
+                success: false,
+                message: "End date must be after start date"
+            });
+        }
+
+        // Begin transaction
+        await transaction.begin();
+
+        // Check for existing contracts in the date range
+        const checkRequest = new sql.Request(transaction);
+        checkRequest.input('locationId', sql.Int, locationId);
+        checkRequest.input('startYear', sql.Int, startYear);
+        checkRequest.input('startMonth', sql.Int, startMonth);
+        checkRequest.input('endYear', sql.Int, endYear);
+        checkRequest.input('endMonth', sql.Int, endMonth);
+        checkRequest.input('contractType', sql.VarChar(10), contractType);
+
+        const checkQuery = `
+            SELECT Year, Month
+            FROM LocationContracts
+            WHERE LocationID = @locationId
+            AND ContractType = @contractType
+            AND (
+                (Year = @startYear AND Month >= @startMonth)
+                OR (Year = @endYear AND Month <= @endMonth)
+                OR (Year > @startYear AND Year < @endYear)
+            )`;
+
+        const existingContracts = await checkRequest.query(checkQuery);
+
+        if (existingContracts.recordset.length > 0 && !overwrite) {
+            await transaction.rollback();
+            return res.status(409).json({
+                success: false,
+                message: "Contracts already exist for some months in this date range",
+                conflicts: existingContracts.recordset
+            });
+        }
+
+        // If overwrite is true and contracts exist, delete them
+        if (existingContracts.recordset.length > 0 && overwrite) {
+            const deleteRequest = new sql.Request(transaction);
+            deleteRequest.input('locationId', sql.Int, locationId);
+            deleteRequest.input('startYear', sql.Int, startYear);
+            deleteRequest.input('startMonth', sql.Int, startMonth);
+            deleteRequest.input('endYear', sql.Int, endYear);
+            deleteRequest.input('endMonth', sql.Int, endMonth);
+            deleteRequest.input('contractType', sql.VarChar(10), contractType);
+
+            const deleteQuery = `
+                DELETE FROM LocationContracts 
+                WHERE LocationID = @locationId
+                AND ContractType = @contractType
+                AND (
+                    (Year = @startYear AND Month >= @startMonth)
+                    OR (Year = @endYear AND Month <= @endMonth)
+                    OR (Year > @startYear AND Year < @endYear)
+                )`;
+            
+            await deleteRequest.query(deleteQuery);
+        }
+
+        // Insert new contracts
+        const insertedContracts = [];
+        let currentYear = startYear;
+        let currentMonth = startMonth;
+
+        while (currentYear < endYear || (currentYear === endYear && currentMonth <= endMonth)) {
+            const insertRequest = new sql.Request(transaction);
+            insertRequest.input('locationId', sql.Int, locationId);
+            insertRequest.input('year', sql.Int, currentYear);
+            insertRequest.input('month', sql.Int, currentMonth);
+            insertRequest.input('staffCount', sql.Int, staffCount);
+            insertRequest.input('contractType', sql.VarChar(10), contractType);
+
+            const insertQuery = `
+                INSERT INTO LocationContracts (
+                    LocationID, Year, Month, StaffCount, ContractType
+                )
+                OUTPUT INSERTED.*
+                VALUES (
+                    @locationId, @year, @month, @staffCount, @contractType
+                )`;
+
+            const result = await insertRequest.query(insertQuery);
+            
+            insertedContracts.push({
+                contractId: result.recordset[0].ContractID,
+                locationId: result.recordset[0].LocationID,
+                year: currentYear,
+                month: currentMonth,
+                staffCount: staffCount,
+                contractType: contractType
+            });
+
+            // Move to next month
+            currentMonth++;
+            if (currentMonth > 12) {
+                currentMonth = 1;
+                currentYear++;
+            }
+        }
+
+        // Commit transaction
+        await transaction.commit();
+
+        res.status(200).json({
+            success: true,
+            message: "Contracts created successfully",
+            contracts: insertedContracts
+        });
+
+    } catch (error) {
+        console.error("Error creating contracts:", error);
+        
+        try {
+            await transaction.rollback();
+        } catch (rollbackError) {
+            console.error("Error rolling back transaction:", rollbackError);
+        }
+
+        // Handle specific errors
+        if (error.number === 2627) {
+            return res.status(409).json({
+                success: false,
+                message: "Duplicate contract entries found. Please use overwrite=true to replace existing contracts.",
+                error: error.message
+            });
+        }
+
+        res.status(500).json({
+            success: false,
+            message: "Failed to create contracts",
+            error: error.message
+        });
+    }
+});
+
+
+
+// Update contract
+router.put("/locationContracts/:contractId", authorization, async (req, res) => {
+    try {
+        const { contractId } = req.params;
+        const { staffCount, contractType } = req.body;
+        
+        if (!staffCount && !contractType) {
+            return res.status(400).json({
+                success: false,
+                message: "At least one field (staffCount or contractType) must be provided"
+            });
+        }
+
+        const pool = await poolPromise;
+        
+        // Build the SET clause dynamically without trailing comma
+        const setClause = [];
+        if (staffCount) setClause.push('StaffCount = @staffCount');
+        if (contractType) setClause.push('ContractType = @contractType');
+        
+        const updateQuery = `
+            UPDATE LocationContracts
+            SET ${setClause.join(', ')}
+            OUTPUT INSERTED.*
+            WHERE ContractID = @contractId`;
+            
+        const request = pool.request()
+            .input('contractId', sql.Int, contractId);
+        
+        if (staffCount) request.input('staffCount', sql.Int, staffCount);
+        if (contractType) request.input('contractType', sql.VarChar(10), contractType);
+        
+        const result = await request.query(updateQuery);
+        
+        if (result.rowsAffected[0] === 0) {
+            return res.status(404).json({
+                success: false,
+                message: "Contract not found"
+            });
+        }
+        
+        res.status(200).json({
+            success: true,
+            message: "Contract updated successfully",
+            contract: result.recordset[0]
+        });
+    } catch (error) {
+        console.error("Error updating contract:", error);
+        res.status(500).json({
+            success: false,
+            message: "Failed to update contract",
+            error: error.message
+        });
+    }
+});
+
+// Delete contract
+// router.delete("/locationContracts/:contractId", authorization, async (req, res) => {
+//     const pool = await poolPromise;
+//     const transaction = new sql.Transaction(pool);
+
+//     try {
+//         const { contractId } = req.params;
+        
+//         // Begin transaction
+//         await transaction.begin();
+        
+//         // Create a request object linked to the transaction
+//         const request = new sql.Request(transaction);
+//         request.input('contractId', sql.Int, contractId);
+        
+//         // First check if the contract exists
+//         const checkQuery = `
+//             SELECT ContractID 
+//             FROM LocationContracts 
+//             WHERE ContractID = @contractId`;
+            
+//         const checkResult = await request.query(checkQuery);
+        
+//         if (checkResult.recordset.length === 0) {
+//             await transaction.rollback();
+//             return res.status(404).json({
+//                 success: false,
+//                 message: "Contract not found"
+//             });
+//         }
+        
+//         // Proceed with deletion
+//         const deleteQuery = `
+//             DELETE FROM LocationContracts 
+//             WHERE ContractID = @contractId`;
+            
+//         await request.query(deleteQuery);
+        
+//         // Commit the transaction
+//         await transaction.commit();
+        
+//         res.status(200).json({
+//             success: true,
+//             message: "Contract deleted successfully"
+//         });
+        
+//     } catch (error) {
+//         console.error("Error deleting contract:", error);
+        
+//         // Attempt to rollback the transaction
+//         try {
+//             await transaction.rollback();
+//         } catch (rollbackError) {
+//             console.error("Error rolling back transaction:", rollbackError);
+//         }
+        
+//         // Check for specific database errors
+//         if (error.code === 'EREQUEST') {
+//             return res.status(400).json({
+//                 success: false,
+//                 message: "Invalid database request",
+//                 error: error.message
+//             });
+//         }
+        
+//         res.status(500).json({
+//             success: false,
+//             message: "Failed to delete contract",
+//             error: error.message
+//         });
+//     }
+// });
+
+router.delete("/locationContracts/:contractId", authorization, async (req, res) => {
+    try {
+        const { contractId } = req.params;
+        
+        const pool = await poolPromise;
+        const request = pool.request();
+        request.input('contractId', sql.Int, contractId);
+        
+        // Delete the contract and return the deleted row count
+        const deleteQuery = `
+            DELETE FROM LocationContracts 
+            OUTPUT DELETED.*
+            WHERE ContractID = @contractId`;
+            
+        const result = await request.query(deleteQuery);
+        
+        if (result.rowsAffected[0] === 0) {
+            return res.status(404).json({
+                success: false,
+                message: "Contract not found"
+            });
+        }
+        
+        res.status(200).json({
+            success: true,
+            message: "Contract deleted successfully",
+            deletedContract: result.recordset[0]
+        });
+        
+    } catch (error) {
+        console.error("Error deleting contract:", error);
+        
+        // Handle foreign key constraint violations
+        if (error.number === 547) {
+            return res.status(400).json({
+                success: false,
+                message: "Cannot delete this contract as it is referenced by other records",
+                error: error.message
+            });
+        }
+        
+        res.status(500).json({
+            success: false,
+            message: "Failed to delete contract",
+            error: error.message
+        });
     }
 });
 

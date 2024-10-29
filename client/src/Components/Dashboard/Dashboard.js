@@ -5,8 +5,10 @@ import { useNavigate , Link, Outlet} from 'react-router-dom';
 import logo from '../../Images/azzurro.jpg'; // Add your logo image path here
 import { useUser } from './UserProvider';
 import AttSummary from './AttSummary/AttSummary';
-import Users from '../Users/Users';
+import UserManagement from '../UserManagement/UserManagement';
 import Regularize from './Regularize/Regularize';
+import Contract from './Contract/Contract';
+import DesignationReport from './DesignationReport/DesignationReport';
 import axios from 'axios';
 
 
@@ -106,7 +108,7 @@ const Dashboard = () => {
     // Update the current component based on the selected key
     switch (e.key) {
         case 'users':
-          setCurrentComponent(<Users />);
+          setCurrentComponent(<UserManagement />);
           break;
         case 'dashboard': // Change 'another' to the key of another component
           setCurrentComponent(<AttSummary />);
@@ -114,6 +116,15 @@ const Dashboard = () => {
         case 'regularize':
           setCurrentComponent(<Regularize />);
           break;
+        case 'contract':
+          setCurrentComponent(<Contract/>);
+          break;
+        case 'designationReport':
+            setCurrentComponent(<DesignationReport/>);
+            break;
+        case 'userManagement':
+            setCurrentComponent(<UserManagement/>);
+            break;
         default:
           setCurrentComponent(<AttSummary />); // Default to Users component
       }
