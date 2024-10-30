@@ -14,7 +14,9 @@ CREATE TABLE UserLogin (
     Company NVARCHAR(150),                  -- Company name
     UserType NVARCHAR(50),                  -- Type of user (e.g., admin, standard user, etc.)
     IsAdmin BIT DEFAULT 0, 
-	IsSuperAdmin BIT DEFAULT 0,                 -- Boolean value to check if the user is an admin (0 = false, 1 = true)
+	IsSuperAdmin BIT DEFAULT 0,
+Designation NVARCHAR(100),
+                 -- Boolean value to check if the user is an admin (0 = false, 1 = true)
     UserName NVARCHAR(50) NOT NULL UNIQUE,  -- Unique username
     UserMail NVARCHAR(100) NOT NULL UNIQUE, -- Unique email address
     UserPassword NVARCHAR(255) NOT NULL,    -- User password (store as a hashed value)
@@ -22,6 +24,40 @@ CREATE TABLE UserLogin (
     Active BIT DEFAULT 1,                   -- Boolean value to check if the user is active (0 = inactive, 1 = active)
     Permissions NVARCHAR(MAX)
 );
+
+//sampledata- reportuser@report.com,reportschool@2024
+	INSERT INTO UserLogin (
+    FirstName, 
+    LastName, 
+    Company, 
+    UserType, 
+    IsAdmin, 
+    IsSuperAdmin,
+    UserName, 
+    UserMail, 
+    UserPassword, 
+    ApprovedUser, 
+    Active, 
+    Permissions, 
+    Designation
+) 
+VALUES (
+    'Report', 
+    'User', 
+    'Azzurro', 
+    'superAdmin', 
+    1, 
+    1, 
+    'reportuser', 
+    'reportuser@report.com', 
+    '$2a$10$wOnA8u0lIKwLGUiR/vGZTOUUaWjGZh7OjhY9kT0Wa33TlftVIpCxS', 
+    1, 
+    1, 
+    '{"read": true, "write": true}', 
+    'OPERATION MANAGER'
+);
+
+//
 
 
 
