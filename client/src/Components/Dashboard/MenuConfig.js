@@ -20,7 +20,7 @@ const MenuConfig = {
         //     ]
         // }
     ],
-    user: [
+    User: [
         { key: 'dashboard', label: 'Dashboard', icon: <PieChartOutlined /> },
         {key:'designationReport',label:'DesignationReport', icon:<FileTextOutlined/>},
         // Add user-specific menu items here

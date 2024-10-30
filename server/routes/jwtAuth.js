@@ -182,37 +182,91 @@ const validinfo = require('../middleware/validinfo');
 const authorization = require('../middleware/authorization');
 
 // Existing routes remain the same...
+// router.post("/login", validinfo, async (req, res) => {
+//   try {
+//     const { email, password } = req.body;
+//     console.log(email,password);
+
+//     const pool = await poolPromise;
+//     const userResult = await pool.request()
+//       .input('userMail', sql.VarChar, email)
+//       .query('SELECT * FROM userLogin WHERE userMail = @userMail and Active=1');
+
+//     const user = userResult.recordset[0];
+
+//     console.log(user,"login");
+    
+
+//     if (!user) {
+//       return res.status(401).json("Email/Password is incorrect");
+//     }
+
+//     const validPassword = await bcrypt.compare(password, user.UserPassword);
+
+//     if (!validPassword) {
+//       return res.status(401).json("Password or Email is incorrect");
+//     }
+
+//     const token = jwtGenerator(user.UserID, user.UserMail);
+
+//     res.json({ token, isAdmin: user.IsAdmin , isSuperAdmin: user.IsSuperAdmin, userType: user.UserType, firstName: user.FirstName, lastName:user.LastName, userID:user.UserId, designation:user.Designation});
+
+//   } catch (error) {
+//     console.error(error);
+//     res.status(500).send("Server Error");
+//   }
+// });
 router.post("/login", validinfo, async (req, res) => {
   try {
     const { email, password } = req.body;
-    console.log(email,password);
+    console.log(email, password);
 
     const pool = await poolPromise;
     const userResult = await pool.request()
       .input('userMail', sql.VarChar, email)
-      .query('SELECT * FROM userLogin WHERE userMail = @userMail and ApprovedUser=1');
+      .query('SELECT * FROM userLogin WHERE userMail = @userMail');
 
     const user = userResult.recordset[0];
+    console.log(user, "login");
 
+    // Check if the user exists
     if (!user) {
       return res.status(401).json("Email/Password is incorrect");
     }
 
-    const validPassword = await bcrypt.compare(password, user.UserPassword);
+    // Check if the account is active
+    if (!user.Active) {
+      return res.status(403).json("Account is inactive. Please contact support.");
+    }
 
+    // Verify password
+    const validPassword = await bcrypt.compare(password, user.UserPassword);
     if (!validPassword) {
       return res.status(401).json("Password or Email is incorrect");
     }
 
+    // Generate token if login is successful
     const token = jwtGenerator(user.UserID, user.UserMail);
 
-    res.json({ token, isAdmin: user.IsAdmin , isSuperAdmin: user.IsSuperAdmin, userType: user.UserType, firstName: user.FirstName, lastName:user.LastName, userID:user.UserId, designation:user.Designation});
+    res.json({
+      token,
+      isAdmin: user.IsAdmin,
+      isSuperAdmin: user.IsSuperAdmin,
+      userType: user.UserType,
+      firstName: user.FirstName,
+      lastName: user.LastName,
+      userID: user.UserID,
+      designation: user.Designation
+    });
 
   } catch (error) {
     console.error(error);
     res.status(500).send("Server Error");
   }
 });
+
+
+
 
 router.get("/is-verify", authorization, async (req, res) => {
   try {
@@ -285,8 +339,8 @@ router.post("/users", authorization, async (req, res) => {
       .input('password', sql.VarChar, bcryptPassword)
       .input('isAdmin', sql.Bit, IsAdmin || false)
       .input('isSuperAdmin', sql.Bit, IsSuperAdmin || false)
-      .query(`INSERT INTO userLogin (FirstName, LastName, UserMail, UserName, Company, UserType, UserPassword, IsAdmin, IsSuperAdmin, Active) 
-              VALUES (@firstName, @lastName, @userMail, @userName, @company, @userType, @password, @isAdmin, @isSuperAdmin, 1)`);
+      .query(`INSERT INTO userLogin (FirstName, LastName, UserMail, UserName, Company, UserType, UserPassword, IsAdmin, IsSuperAdmin, Active,ApprovedUser) 
+              VALUES (@firstName, @lastName, @userMail, @userName, @company, @userType, @password, @isAdmin, @isSuperAdmin, 1,1)`);
 
     res.status(201).json("User created successfully");
   } catch (err) {
