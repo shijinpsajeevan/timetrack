@@ -873,6 +873,7 @@ export default function AttMonthly({ locationid, duration }) {
     
     // Show modal with name input
     const showNameModal = () => {
+        return ({ cancelled: true });
         return new Promise((resolve) => {
             Modal.confirm({
                 title: 'Enter School Representative Name',
@@ -1199,11 +1200,11 @@ export default function AttMonthly({ locationid, duration }) {
                     );
     
                     // Add generation date
-                    pdf.text(
-                        `Generated: ${new Date().toLocaleDateString()}`,
-                        pageWidth - 60,
-                        pageHeight - 5
-                    );
+                    // pdf.text(
+                    //     `Generated: ${new Date().toLocaleDateString()}`,
+                    //     pageWidth - 60,
+                    //     pageHeight - 5
+                    // );
                 },
                 margin: margins,
             });
@@ -1414,10 +1415,10 @@ export default function AttMonthly({ locationid, duration }) {
         
         // Draw Company Representative table
         drawSignatureTable(table1X, signatureTablesY, 'Company Representative', {
-            'Name': `${firstName.toUpperCase()+ ' '+ lastName.toUpperCase()}`,
+            'Name': `${firstName.toUpperCase() + ' ' + lastName.toUpperCase()}`,
             'Designation': `${designation}`,
             'Signature': '',
-            'Date': `${new Date().toLocaleDateString('en-GB')}`
+            'Date': `${new Date(duration.getFullYear(), duration.getMonth() + 1, 0).toLocaleDateString('en-GB')}`
         });
 
 
@@ -1432,9 +1433,9 @@ export default function AttMonthly({ locationid, duration }) {
         // Draw School Representative table
         drawSignatureTable(table3X, signatureTablesY, 'School Representative', {
             'Name': `${schoolRepName}`,
-            'Designation': 'PRINCIPAL',
+            'Designation': '',
             'Signature': '',
-            'Date': `${new Date().toLocaleDateString('en-GB')}`
+            'Date': `${new Date(duration.getFullYear(), duration.getMonth() + 1, 0).toLocaleDateString('en-GB')}`
         });
 
             ///end
@@ -1460,6 +1461,7 @@ const exportToExcel = async () => {
     
     // Show modal with name input
     const showNameModal = () => {
+        return ({ cancelled: true });;
         return new Promise((resolve) => {
             Modal.confirm({
                 title: 'Enter School Representative Name',
@@ -1672,13 +1674,13 @@ const exportToExcel = async () => {
         worksheet.spliceRows(1, 0, [], []); // Insert two empty rows at the top
 
         // Add title headers in the correct position
-        worksheet.mergeCells('A1:G1');
+        worksheet.mergeCells('A1:AG1');
         const titleCell = worksheet.getCell('A1');
         titleCell.value = locationName;
         titleCell.alignment = { horizontal: 'center' };
         titleCell.font = { bold: true, size: 12 };
 
-        worksheet.mergeCells('A2:G2');
+        worksheet.mergeCells('A2:AG2');
         const subtitleCell = worksheet.getCell('A2');
         subtitleCell.value = `Attendance Report - ${getMonthYearString()}`;
         subtitleCell.alignment = { horizontal: 'center' };
@@ -1868,7 +1870,7 @@ const exportToExcel = async () => {
             'School Representative',
             {
                 'Name': `${schoolRepName}`,
-                'Designation': 'PRINCIPAL',
+                'Designation': '',
                 'Signature': '',
                 'Date': `${new Date().toLocaleDateString('en-GB')}`
             }
