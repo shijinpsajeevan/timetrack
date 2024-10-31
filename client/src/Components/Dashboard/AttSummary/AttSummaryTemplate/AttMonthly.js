@@ -1221,7 +1221,7 @@ export default function AttMonthly({ locationid, duration }) {
             ///Signature
 
              // Add signature tables
-        const signatureTablesY = pageHeight - 60; // Position for signature tables
+        const signatureTablesY = pageHeight - 50; // Position for signature tables
         const tableWidth = 85; // Width of each signature table
         const tableHeight = 40; // Height of each signature table
         const spacing = 8; // Spacing between tables
