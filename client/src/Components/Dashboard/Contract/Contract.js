@@ -38,7 +38,7 @@ const Contract = () => {
 
   const fetchLocations = async () => {
     try {
-      const response = await axios.post('http://localhost:3003/api/common/getDeviceList', {}, {
+      const response = await axios.post('http://azzurro.dyndns.org:3001/api/common/getDeviceList', {}, {
         headers: {
           'token': token
         }
@@ -53,7 +53,7 @@ const Contract = () => {
   const fetchContracts = async (locationId, startDate, endDate) => {
     try {
       setLoading(true);
-      const response = await axios.get('http://localhost:3003/api/common/getLocationContracts', {
+      const response = await axios.get('http://azzurro.dyndns.org:3001/api/common/getLocationContracts', {
         params: {
           locationId,
           startYear: startDate.year(),
@@ -98,7 +98,7 @@ const Contract = () => {
     try {
       setLoading(true);
       const response = await axios.post(
-        'http://localhost:3003/api/common/locationContracts',
+        'http://azzurro.dyndns.org:3001/api/common/locationContracts',
         contractData,
         {
           headers: {
@@ -130,7 +130,7 @@ const Contract = () => {
     try {
       setLoading(true);
       const response = await axios.put(
-        `http://localhost:3003/api/common/locationContracts/${contract.contractId}`,
+        `http://azzurro.dyndns.org:3001/api/common/locationContracts/${contract.contractId}`,
         {
           staffCount: contract.staffCount,
           contractType: contract.contractType
@@ -164,7 +164,7 @@ const Contract = () => {
 //     try {
 //       setLoading(true);
 //       const response = await axios.delete(
-//         `http://localhost:3003/api/common/locationContracts/${contractId}`,
+//         `http://azzurro.dyndns.org:3001/api/common/locationContracts/${contractId}`,
 //         {
 //           headers: {
 //             'token': token
@@ -197,7 +197,7 @@ const handleDeleteContract = async (contractId) => {
     try {
       setLoading(true);
       const response = await axios.delete(
-        `http://localhost:3003/api/common/locationContracts/${contractId}`,
+        `http://azzurro.dyndns.org:3001/api/common/locationContracts/${contractId}`,
         {
           headers: {
             'token': token

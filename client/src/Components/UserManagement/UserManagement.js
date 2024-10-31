@@ -29,7 +29,7 @@ const UserManagement = () => {
   const [form] = Form.useForm();
   const [passwordForm] = Form.useForm();
 
-  const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:3003';
+  const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://azzurro.dyndns.org:3001';
 
   useEffect(() => {
     fetchUsers();

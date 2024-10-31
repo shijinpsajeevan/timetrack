@@ -37,7 +37,7 @@ const DesignationReport = () => {
   const fetchLocations = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.post('http://localhost:3003/api/common/getDeviceList', {}, {
+      const response = await axios.post('http://azzurro.dyndns.org:3001/api/common/getDeviceList', {}, {
         headers: { token }
       });
       const locations = response.data.map(location => ({
@@ -133,7 +133,7 @@ const DesignationReport = () => {
       const tableName = getTableName(month, year);
 
       const responses = await Promise.all(values.locations.map(locationId => 
-        axios.post('http://localhost:3003/api/common/getDeviceLogs', {
+        axios.post('http://azzurro.dyndns.org:3001/api/common/getDeviceLogs', {
           locationId,
           tableName,
           type: 3

@@ -47,6 +47,7 @@ export default function AttMonthly({ locationid, duration }) {
                     ]);
                 } catch (error) {
                     console.error("Error initializing data:", error);
+                    alert(error)
                     message.error("Failed to initialize data");
                 } finally {
                     setLoading(false);
@@ -79,7 +80,7 @@ export default function AttMonthly({ locationid, duration }) {
     };
 
     const calculateWorkingDays = (employeeData) => {
-        console.log(employeeData,"for wokringdyacalc");
+        
         
         if (!employeeData || employeeData.isSummary || employeeData.isTotal || employeeData.totalPresent || !employeeData.EmployeeCode) return 0;
         const daysInMonth = new Date(duration.getFullYear(), duration.getMonth() + 1, 0).getDate();
@@ -90,7 +91,7 @@ export default function AttMonthly({ locationid, duration }) {
             // Only count days that are not PH, SL, or WO
             if (status !== 'PH' && status !== 'SL' && status !== 'WO') {
                 workingDays++;
-            console.log(workingDays);
+            
             
             }
         }
@@ -119,7 +120,7 @@ export default function AttMonthly({ locationid, duration }) {
                 case 2: // Daily Contract
                 case 3: // Monthly Contract
                     const type = contractType === 2 ? 'Daily' : 'Monthly';
-                    const response = await axios.get('http://localhost:3003/api/common/getContractCount', {
+                    const response = await axios.get('http://azzurro.dyndns.org:3001/api/common/getContractCount', {
                         params: {
                             locationId: locationid,
                             date: duration.toISOString(),
@@ -341,7 +342,7 @@ export default function AttMonthly({ locationid, duration }) {
 
     const fetchHolidays = async (dateObject) => {
         try {
-            const response = await axios.get('http://localhost:3003/api/common/getHolidays', {
+            const response = await axios.get('http://azzurro.dyndns.org:3001/api/common/getHolidays', {
                 params: {
                     month: dateObject.getMonth() + 1,
                     year: dateObject.getFullYear()
@@ -370,7 +371,7 @@ export default function AttMonthly({ locationid, duration }) {
     const fetchLocationName = async (locationid) => {
         try {
             const token = localStorage.getItem('token');
-            const response = await axios.get(`http://localhost:3003/api/common/getLocation`, {
+            const response = await axios.get(`http://azzurro.dyndns.org:3001/api/common/getLocation`, {
                 params: {
                     locationId: locationid,
                     locationType: 1  // Get Device Location TYPE-1
@@ -399,11 +400,11 @@ export default function AttMonthly({ locationid, duration }) {
         const year = dateObject.getFullYear();
         const tableName = `DeviceLogs_${month}_${year}`;
 
-        console.log("Fetching logs from table:", tableName);
+        
 
         try {
             const token = localStorage.getItem('token');
-            const response = await axios.post('http://localhost:3003/api/common/getDeviceLogs', {
+            const response = await axios.post('http://azzurro.dyndns.org:3001/api/common/getDeviceLogs', {
                 locationId: locationid,
                 tableName: tableName,
                 type: 3 // TYPE-3 Monthly report
@@ -618,7 +619,7 @@ export default function AttMonthly({ locationid, duration }) {
                             });
                         });
                         const totals = calculateDailyTotals(visibleRecords);
-                        console.log(totals,"zz");
+                        
                         
                         return `Total : ${totals.totalPresent + totals.totalME}`;
                     }

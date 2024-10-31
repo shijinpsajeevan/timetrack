@@ -68,7 +68,7 @@ const Dashboard = () => {
                 navigate('/login');
             }
 
-            const response = await axios.get('http://localhost:3003/api/auth/is-verify', {
+            const response = await axios.get('http://azzurro.dyndns.org:3001/api/auth/is-verify', {
                 headers: { token: token } 
               });
 

@@ -46,7 +46,7 @@ const LoginForm = () => {
 
   const onFinish = async (values) => {
     try {
-      const response = await axios.post('http://localhost:3003/api/auth/login', {
+      const response = await axios.post('http://azzurro.dyndns.org:3001/api/auth/login', {
         email: values.userEmail,
         password: values.password
       });
@@ -59,7 +59,7 @@ const LoginForm = () => {
       setUserRole(response.data.userType);
 
       message.success('Login successful!');
-      navigate('/dashboard');
+      navigate('http://azzurro.dyndns.org:3001/dashboard');
     } catch (error) {
       message.error(error.response?.data || 'Login failed. Please try again.');
     }

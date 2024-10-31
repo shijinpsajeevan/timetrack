@@ -72,7 +72,7 @@ export default function AttSummary() {
         try {
             const token = localStorage.getItem('token');
 
-            const response = await axios.post('http://localhost:3003/api/common/getDeviceList', {}, {
+            const response = await axios.post('http://azzurro.dyndns.org:3001/api/common/getDeviceList', {}, {
                 headers: { token: token }
             });
 

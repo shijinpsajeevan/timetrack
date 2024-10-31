@@ -1,0 +1,2 @@
+2024-10-31 22:42:11 - Starting C:\Program Files\nodejs\node.exe  --harmony E:\RIS-DMCC\timetrack\server\node_modules\node-windows\lib\wrapper.js --file E:\RIS-DMCC\timetrack\server\server.js --scriptoptions= --log "RIS Attendance Pro wrapper" --grow 0.25 --wait 1 --maxrestarts 3 --abortonerror n --stopparentfirst undefined
+2024-10-31 22:42:11 - Started 4772

@@ -63,7 +63,7 @@ const Regularize = () => {
   const fetchLocations = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.post('http://localhost:3003/api/common/getDeviceList', {}, {
+      const response = await axios.post('http://azzurro.dyndns.org:3001/api/common/getDeviceList', {}, {
         headers: { token: token }
       });
       const locations = response.data.map(location => ({
@@ -79,7 +79,7 @@ const Regularize = () => {
 
   const fetchEmployees = async () => {
     try {
-      const response = await axios.get('http://localhost:3003/api/common/getEmployeeList', {
+      const response = await axios.get('http://azzurro.dyndns.org:3001/api/common/getEmployeeList', {
         headers: {
           'token': localStorage.getItem('token')
         }
@@ -94,7 +94,7 @@ const Regularize = () => {
   const handleSubmit = async (values) => {
     try {
       setLoading(true);
-      const response = await fetch('http://localhost:3003/api/common/regularize-attendance', {
+      const response = await fetch('http://azzurro.dyndns.org:3001/api/common/regularize-attendance', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -130,7 +130,7 @@ const Regularize = () => {
   const handleDelete = async (record) => {
     try {
       const response = await fetch(
-        `http://localhost:3003/api/common/regularize-attendance/${record.id}?tableName=${record.tableName}`, 
+        `http://azzurro.dyndns.org:3001/api/common/regularize-attendance/${record.id}?tableName=${record.tableName}`, 
         {
           method: 'DELETE',
           headers: {
@@ -163,7 +163,7 @@ const Regularize = () => {
       const tableName = `DeviceLogs_${month}_${year}`;
       
       const response = await fetch(
-        `http://localhost:3003/api/common/regularize-attendance/report`, {
+        `http://azzurro.dyndns.org:3001/api/common/regularize-attendance/report`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -432,7 +432,7 @@ const Regularize = () => {
               rowKey="id"
               pagination={{ pageSize: 10 }}
               onChange={(pagination, filters, sorter) => {
-                console.log('Table params:', { pagination, filters, sorter });
+                
               }}
             />
           </Card>
